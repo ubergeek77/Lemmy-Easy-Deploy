@@ -136,6 +136,7 @@ fi
 echo
 echo "Detected runtime: $($RUNTIME_CMD --version)"
 echo "Detected compose: $($COMPOSE_CMD version)"
+echo
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
