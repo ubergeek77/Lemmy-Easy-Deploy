@@ -1,0 +1,28 @@
+{
+  setup: {
+    admin_username: "{{SETUP_ADMIN_USER}}"
+    admin_password: "{{SETUP_ADMIN_PASS}}"
+    site_name: "{{SETUP_SITE_NAME}}"
+  }
+
+  hostname: "{{LEMMY_HOSTNAME}}"
+  bind: "0.0.0.0"
+  port: 8536
+  tls_enabled: {{TLS_ENABLED}}
+
+  pictrs: {
+    url: "http://pictrs:8080/"
+    api_key: "{{PICTRS__API_KEY}}"
+  }
+
+  database: {
+    user: "lemmy"
+    password: "{{POSTGRES_PASSWORD}}"
+    host: "postgres"
+    port: 5432
+    database: "lemmy"
+    pool_size: {{POSTGRES_POOL_SIZE}}
+  }
+
+  {{EMAIL_BLOCK}}
+}

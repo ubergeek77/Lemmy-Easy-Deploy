@@ -1,0 +1,14 @@
+  postfix:
+    image: mwader/postfix-relay
+    env_file:
+      - ./postfix.env
+    volumes:
+      - postfix_data:/var/lib/postfix
+      - postfix_mail:/var/mail
+      - postfix_spool:/var/spool/postfix
+      - postfix_keys:/etc/opendkim/keys
+    networks:
+      - lemmyinternal
+      - lemmybridge
+    restart: always
+    logging: *default-logging

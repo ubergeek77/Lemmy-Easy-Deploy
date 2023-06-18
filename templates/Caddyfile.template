@@ -1,0 +1,45 @@
+(caddy-common) {
+	encode gzip
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; include-subdomains;"
+		X-XSS-Protection "1; mode=block"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer-when-downgrade
+		X-Robots-Tag "none"
+	}
+}
+
+{$LEMMY_HOSTNAME} {
+	import caddy-common
+	reverse_proxy http://lemmy-ui:1234
+
+	@lemmy {
+		path /api/*
+		path /pictrs/*
+		path /feeds/*
+		path /nodeinfo/*
+		path /.well-known/*
+	}
+
+	@lemmy-hdr {
+		header Accept application/*
+	}
+
+	handle @lemmy {
+		reverse_proxy http://lemmy:8536
+	}
+
+	handle @lemmy-hdr {
+		reverse_proxy http://lemmy:8536
+	}
+
+	@lemmy-post {
+		method POST
+	}
+
+	handle @lemmy-post {
+		reverse_proxy http://lemmy:8536
+	}
+}

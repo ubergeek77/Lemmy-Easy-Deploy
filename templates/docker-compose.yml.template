@@ -1,0 +1,99 @@
+version: "3.9"
+x-logging:
+  &default-logging
+  options:
+    max-size: '500m'
+  driver: json-file
+
+services:
+
+  proxy:
+    {{COMPOSE_CADDY_IMAGE}}
+    env_file:
+      - ./caddy.env
+    volumes:
+      - $PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - pictrs
+      - lemmy-ui
+    networks:
+      - lemmyinternal
+      - lemmyexternalproxy
+    restart: always
+    logging: *default-logging
+
+  lemmy:
+    {{COMPOSE_LEMMY_IMAGE}}
+    environment:
+      - RUST_LOG="warn,lemmy_server=info,lemmy_api=info,lemmy_api_common=info,lemmy_api_crud=info,lemmy_apub=info,lemmy_db_schema=info,lemmy_db_views=info,lemmy_db_views_actor=info,lemmy_db_views_moderator=info,lemmy_routes=info,lemmy_utils=info,lemmy_websocket=info"
+    volumes:
+      - ./lemmy.hjson:/config/config.hjson
+    depends_on:
+      - postgres
+      - pictrs
+    networks:
+      - lemmyinternal
+      - lemmybridge
+    restart: always
+    logging: *default-logging
+
+  lemmy-ui:
+    {{COMPOSE_LEMMY_UI_IMAGE}}
+    environment:
+      - LEMMY_UI_LEMMY_INTERNAL_HOST=lemmy:8536
+      - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
+      - LEMMY_HTTPS=true
+    depends_on:
+      - lemmy
+    networks:
+      - lemmyinternal
+    restart: always
+    logging: *default-logging
+
+  pictrs:
+    image: asonix/pictrs:0.3.1
+    user: 991:991
+    env_file:
+      - ./pictrs.env
+    volumes:
+      - pictrs_data:/mnt
+    networks:
+      - lemmyinternal
+      - lemmybridge
+    restart: always
+    logging: *default-logging
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=lemmy
+      - POSTGRES_DB=lemmy
+    env_file:
+      - ./postgres.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lemmyinternal
+    restart: always
+    logging: *default-logging
+
+{{EMAIL_SERVICE}}
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pictrs_data:
+  postgres_data:
+{{EMAIL_VOLUMES}}
+
+networks:
+  lemmyexternalproxy:
+  lemmybridge:
+  lemmyinternal:
+    driver: bridge
+    internal: true
