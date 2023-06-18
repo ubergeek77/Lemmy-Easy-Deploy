@@ -22,7 +22,7 @@ display_help() {
 }
 
 # Check for LED updates
-LED_CURRENT_VERSION="0.9.9"
+LED_CURRENT_VERSION="1.0.1"
 LED_UPDATE_CHECK="$(curl -s https://api.github.com/repos/ubergeek77/Lemmy-Easy-Deploy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
 
 # Check if this version is newer
@@ -44,11 +44,11 @@ if ((LED_CURRENT_VERSION_NUMERIC < LED_UPDATE_CHECK_NUMERIC)); then
 	echo "|   A new Lemmy-Easy-Deploy update is available!"
 	echo "|       ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
 	if [[ -d "./.git" ]]; then
-		echo
+		echo "|"
 		echo "|   Please consider running 'git pull' to download the update!"
 		echo "|   Alternatively:"
 	fi
-	echo
+	echo "|"
 	echo "|   You can visit the repo to download the update:"
 	echo "|      https://github.com/ubergeek77/Lemmy-Easy-Deploy"
 	echo "================================================================"
