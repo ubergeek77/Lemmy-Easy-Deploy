@@ -6,7 +6,11 @@ Deploy Lemmy the easy way!
 Quick Start
 ---
 
-First, please [follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server). Then, you can launch the quick start commands:
+Make sure you have a server **that has ports 80 and 443 available,** and has already pointed a domain you control to your server's IP address.
+
+***Running Lemmy Easy Deploy behind a separate webserver or reverse proxy is not supported.*** I've given you config options that may help you run it anyway (control of the ports, disable HTTPS in case it's externally managed), but if this is your use case, you are on your own. Sorry about that!
+
+Before running the commands, make sure you have Docker installed. [Follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server). Then:
 
 ```
 # Clone the repo
