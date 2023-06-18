@@ -22,7 +22,7 @@ display_help() {
 }
 
 # Check for LED updates
-LED_CURRENT_VERSION="1.0.1"
+LED_CURRENT_VERSION="1.0.2"
 LED_UPDATE_CHECK="$(curl -s https://api.github.com/repos/ubergeek77/Lemmy-Easy-Deploy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
 
 # Check if this version is newer
@@ -168,7 +168,7 @@ if [[ -z "$LEMMY_HOSTNAME" ]] || [[ "$LEMMY_HOSTNAME" == "example.com" ]]; then
 	echo >&2 "LEMMY_HOSTNAME=example.com"
 	exit 1
 fi
-if [[ $LEMMY_HOSTNAME == http* ]]; then
+if [[ $LEMMY_HOSTNAME =~ ^https?: ]]; then
 	echo >&2 "ERROR: Don't put http/https in hostname.env! Do it like this:"
 	echo >&2 "LEMMY_HOSTNAME=example.com"
 	exit 1
@@ -180,7 +180,6 @@ if [[ -f "./live/version" ]]; then
 else
 	CURRENT_VERSION="0.0.0"
 fi
-echo
 echo " Current Lemmy version: ${CURRENT_VERSION:?}"
 
 # If the user specified a version to update to, use that version
@@ -367,8 +366,11 @@ sed -i -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	-e "s|{{LEMMY_NOREPLY_FROM}}|${LEMMY_NOREPLY_FROM:?}|g" ./live/lemmy.hjson
 
 # Set up the new deployment
+# Pull and build before running down/up to reduce downtime
 (
 	cd ./live
+	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
+	$COMPOSE_CMD -p "lemmy-easy-deploy" build
 	$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d
 )
