@@ -8,7 +8,7 @@ Quick Start
 
 Make sure you have a server **that has ports 80 and 443 available,** and has already pointed a domain you control to your server's IP address.
 
-***Running Lemmy Easy Deploy behind a separate webserver or reverse proxy is not supported.*** I've given you config options that may help you run it anyway (control of the ports, disable HTTPS in case it's externally managed), but if this is your use case, you are on your own. Sorry about that!
+***Running Lemmy-Easy-Deploy behind a separate webserver or reverse proxy is not supported.*** I've given you config options that may help you run it anyway (control of the ports, disable HTTPS in case it's externally managed), but if this is your use case, you are on your own. Sorry about that!
 
 Before running the commands, make sure you have Docker installed. [Follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server). Then:
 
@@ -31,7 +31,7 @@ cp ./config.env.example ./config.env
 
 The default deployment as outlined above will get you running in ***about 1 minute!***
 
-*(NOTE: on non x86_64 platforms, such as ARM, **Lemmy Easy Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles)*
+*NOTE: on non x86_64 platforms, such as ARM, **Lemmy-Easy-Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles*
 
 What is this?
 ---
@@ -79,16 +79,16 @@ There are some additional configuration options available in `config.env`. See t
 - ...and even more options for advanced users! See the comments in `config.env` for more details!
 
 
-Troubleshooting:
+FAQ & Troubleshooting:
 ---
-- I got some kind of `sed` error
+- I got some kind of `sed` error.
 	- Did you use special characters in any of the `config.env` options, such as a `|`? You will need to backslash escape it. Put `\` in front of any special characters, then try again. For example:
 	```bash
 	SETUP_SITE_NAME="Lemmy \| MyServer"
 	```
 
 - Where is all my data?
-	- This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`
+	- This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`.
 	- This is all Docker under the hood, so you can find your data stored in Docker volumes. List them with
 	```bash
 	docker volume ls
@@ -102,7 +102,7 @@ Troubleshooting:
 	du -h $(docker inspect --format='{{.LogPath}}' $(docker ps -qa))
 	```
 
-- How can I run regular `docker compose commands:`
+- How can I run regular `docker compose` commands?
   - This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`
   - Therefore, you will have to `cd ./live`, then run:
   ```bash
