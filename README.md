@@ -6,6 +6,8 @@ Deploy Lemmy the easy way!
 Quick Start
 ---
 
+First, please [follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server). Then, you can launch the quick start commands:
+
 ```
 # Clone the repo
 git clone https://github.com/ubergeek77/Lemmy-Easy-Deploy

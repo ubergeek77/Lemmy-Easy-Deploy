@@ -58,19 +58,51 @@ while (("$#")); do
 	esac
 done
 
-# Check for docker compose or podman compose
-for cmd in "docker-compose" "docker compose" "podman-compose"; do
-	COMPOSE_CMD="${cmd}"
-	if $COMPOSE_CMD >/dev/null 2>&1; then
-		CMD_FOUND="true"
+# Check for docker or podman
+for cmd in "podman" "docker"; do
+	if $cmd >/dev/null 2>&1; then
+		RUNTIME_CMD=$cmd
 		break
 	fi
 done
 
-if [[ "${CMD_FOUND}" != "true" ]]; then
-	echo >&2 "ERROR: Could not find Docker Compose. Is Docker Compose installed?"
+if [[ -z "${RUNTIME_CMD}" ]]; then
+	echo >&2 "ERROR: Could not find a container runtime. Did you install Docker?"
+	echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
+	echo >&2 "     https://docs.docker.com/engine/install/#server"
 	exit 1
 fi
+
+# Check for docker compose or podman compose
+if [[ "${RUNTIME_CMD}" == "podman" ]]; then
+	echo "WARN: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
+	COMPOSE_CMD="podman-compose"
+	if $COMPOSE_CMD >/dev/null 2>&1; then
+		COMPOSE_FOUND="true"
+	else
+		echo >&2 "ERROR: podman detected, but podman-compose is not installed. Please install podman-compose!"
+		exit 1
+	fi
+else
+	for cmd in "docker compose" "docker-compose"; do
+		COMPOSE_CMD="${cmd}"
+		if $COMPOSE_CMD >/dev/null 2>&1; then
+			COMPOSE_FOUND="true"
+			break
+		fi
+	done
+fi
+
+if [[ "${COMPOSE_FOUND}" != "true" ]]; then
+	echo >&2 "ERROR: Could not find Docker Compose. Is Docker Compose installed?"
+	echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
+	echo >&2 "     https://docs.docker.com/engine/install/#server"
+	exit 1
+fi
+
+echo
+echo "Detected runtime: $RUNTIME_CMD"
+echo "Detected compose: $COMPOSE_CMD"
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
