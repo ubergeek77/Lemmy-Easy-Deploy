@@ -149,14 +149,18 @@ fi
 source ./config.env
 
 # Make sure nothing is missing
-for config in "LEMMY_HOSTNAME" "BUILD_FROM_SOURCE" "SETUP_SITE_NAME" "CADDY_HTTP_PORT" "CADDY_HTTPS_PORT" "USE_EMAIL" "CADDY_DISABLE_TLS" "POSTGRES_POOL_SIZE" "TLS_ENABLED" "SETUP_ADMIN_USER" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM"; do
-	if [ -z "${!config}" ]; then
-		echo >&2 "ERROR: Missing config value for '$config'"
-		echo >&2 "Please do not delete any config options from config.env."
-		echo >&2 "See config.env.example for expected default values."
-		exit 1
-	fi
-done
+LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
+BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
+SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
+CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-80}"
+CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-443}"
+USE_EMAIL="${USE_EMAIL:-false}"
+CADDY_DISABLE_TLS="${CADDY_DISABLE_TLS:-false}"
+POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
+TLS_ENABLED="${TLS_ENABLED:-true}"
+SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
+LEMMY_NOREPLY_DISPLAY="${LEMMY_NOREPLY_DISPLAY:-Lemmy NoReply}"
+LEMMY_NOREPLY_FROM="${LEMMY_NOREPLY_FROM:-noreply}"
 
 # Yell at the user if they didn't follow instructions, again
 if [[ -z "$LEMMY_HOSTNAME" ]] || [[ "$LEMMY_HOSTNAME" == "example.com" ]]; then
