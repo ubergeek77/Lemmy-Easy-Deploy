@@ -147,6 +147,16 @@ fi
 # Source the config file
 source ./config.env
 
+# Make sure nothing is missing
+for config in "LEMMY_HOSTNAME" "CF_API_TOKEN" "BUILD_FROM_SOURCE" "SETUP_SITE_NAME" "CADDY_HTTP_PORT" "CADDY_HTTPS_PORT" "USE_EMAIL" "CADDY_DISABLE_TLS" "POSTGRES_POOL_SIZE" "TLS_ENABLED" "SETUP_ADMIN_USER" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM"; do
+	if [ -z "${!config}" ]; then
+		echo >&2 "ERROR: Missing config value for '$config'"
+		echo >&2 "Please do not delete any config options from config.env."
+		echo >&2 "See config.env.example for expected default values."
+		exit 1
+	fi
+done
+
 # Yell at the user if they didn't follow instructions, again
 if [[ -z "$LEMMY_HOSTNAME" ]] || [[ "$LEMMY_HOSTNAME" == "example.com" ]]; then
 	echo >&2 "ERROR: You did not set your hostname in hostname.env! Do it like this:"
