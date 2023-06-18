@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Exit on error
-set -e
-
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $SCRIPT_DIR
@@ -42,13 +39,21 @@ _micro=${fields[2]}
 LED_UPDATE_CHECK_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
 
 if ((LED_CURRENT_VERSION_NUMERIC < LED_UPDATE_CHECK_NUMERIC)); then
+	echo
 	echo "A new Lemmy-Easy-Deploy update is available!"
+	echo "${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
 	if [[ -d "./.git" ]]; then
-		echo "Please consider running git pull to download the update. Alternatively:"
+		echo "Please consider running $(git pull) to download the update!"
+		echo "Alternatively:"
 	fi
+	echo
 	echo "You can visit the repo to download the update:"
 	echo "   https://github.com/ubergeek77/Lemmy-Easy-Deploy"
+	echo
 fi
+
+# Exit on error
+set -e
 
 # parse arguments
 while (("$#")); do
