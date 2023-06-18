@@ -101,8 +101,8 @@ if [[ "${COMPOSE_FOUND}" != "true" ]]; then
 fi
 
 echo
-echo "Detected runtime: $RUNTIME_CMD"
-echo "Detected compose: $COMPOSE_CMD"
+echo "Detected runtime: $($RUNTIME_CMD --version)"
+echo "Detected compose: $($COMPOSE_CMD version)"
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
@@ -145,6 +145,20 @@ else
 	echo "  Latest Lemmy version: ${LEMMY_VERSION:?}"
 	echo
 
+	# Pre-check the version strings
+	if [[ ! $CURRENT_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ ! $LEMMY_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo >&2 "ERROR: Unable to determine Lemmy upgrade path. One of the below versions is not in 0.0.0 format:"
+		echo >&2 "Installed version: $CURRENT_VERSION"
+		echo >&2 "   Target version: $LEMMY_VERSION"
+		echo >&2 ""
+		echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
+		echo >&2 "./$0 -u <some-version> -f"
+		echo >&2 ""
+		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	fi
+
 	# Check if this version is newer
 	IFS='.' read -ra fields <<<"$CURRENT_VERSION"
 	_major=${fields[0]}
@@ -174,6 +188,18 @@ COMPOSE_CADDY_IMAGE="image: caddy:latest"
 COMPOSE_LEMMY_IMAGE="image: dessalines/lemmy:${LEMMY_VERSION:?}"
 COMPOSE_LEMMY_UI_IMAGE="image: dessalines/lemmy-ui:${LEMMY_VERSION:?}"
 
+# If the current system is not x86_64, we can't use the Docker Hub images
+CURRENT_PLATFORM="$(uname -m)"
+if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
+	BUILD_FROM_SOURCE="true"
+	echo
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	echo "WARN: Docker Hub does not have a Lemmy image that supports your platform ($CURRENT_PLATFORM)"
+	echo "Lemmy-Easy-Deploy will now fall back to compiling Lemmy from source. This may take about 30 minutes!"
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	echo
+fi
+
 # Download the sources if we are doing a from-source build
 mkdir -p ./live
 if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]; then
@@ -199,14 +225,26 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
-	)
+	) || {
+		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
+		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	}
+
 	(
 		set -e
 		cd ./live/lemmy-ui
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
-	)
+	) || {
+		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
+		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	}
+
 	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./docker/prod/Dockerfile"
 	COMPOSE_LEMMY_UI_IMAGE="build: ./lemmy-ui"
 fi
@@ -263,6 +301,8 @@ sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_IMAGE}}|${COMPOSE_LEMMY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_UI_IMAGE}}|${COMPOSE_LEMMY_UI_IMAGE:?}|g" \
+	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
+	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
 	./templates/docker-compose.yml.template >./live/docker-compose.yml
 
 if [[ "${USE_EMAIL}" == "true" ]] || [[ "${USE_EMAIL}" == "1" ]]; then
