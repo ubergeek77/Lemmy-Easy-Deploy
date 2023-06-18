@@ -43,7 +43,7 @@ if ((LED_CURRENT_VERSION_NUMERIC < LED_UPDATE_CHECK_NUMERIC)); then
 	echo "A new Lemmy-Easy-Deploy update is available!"
 	echo "${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
 	if [[ -d "./.git" ]]; then
-		echo "Please consider running $(git pull) to download the update!"
+		echo "Please consider running 'git pull' to download the update!"
 		echo "Alternatively:"
 	fi
 	echo
