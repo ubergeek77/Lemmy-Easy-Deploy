@@ -31,7 +31,7 @@ cp ./config.env.example ./config.env
 
 The default deployment as outlined above will get you running in ***about 1 minute!***
 
-*(provided your download speed is good, anyway)*
+*(NOTE: on non x86_64 platforms, such as ARM, **Lemmy Easy Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles)*
 
 What is this?
 ---
