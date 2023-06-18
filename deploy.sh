@@ -149,7 +149,7 @@ fi
 source ./config.env
 
 # Make sure nothing is missing
-for config in "LEMMY_HOSTNAME" "CF_API_TOKEN" "BUILD_FROM_SOURCE" "SETUP_SITE_NAME" "CADDY_HTTP_PORT" "CADDY_HTTPS_PORT" "USE_EMAIL" "CADDY_DISABLE_TLS" "POSTGRES_POOL_SIZE" "TLS_ENABLED" "SETUP_ADMIN_USER" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM"; do
+for config in "LEMMY_HOSTNAME" "BUILD_FROM_SOURCE" "SETUP_SITE_NAME" "CADDY_HTTP_PORT" "CADDY_HTTPS_PORT" "USE_EMAIL" "CADDY_DISABLE_TLS" "POSTGRES_POOL_SIZE" "TLS_ENABLED" "SETUP_ADMIN_USER" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM"; do
 	if [ -z "${!config}" ]; then
 		echo >&2 "ERROR: Missing config value for '$config'"
 		echo >&2 "Please do not delete any config options from config.env."
