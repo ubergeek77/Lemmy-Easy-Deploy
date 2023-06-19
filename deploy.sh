@@ -22,7 +22,7 @@ display_help() {
 }
 
 # Check for LED updates
-LED_CURRENT_VERSION="1.0.2"
+LED_CURRENT_VERSION="1.0.3"
 LED_UPDATE_CHECK="$(curl -s https://api.github.com/repos/ubergeek77/Lemmy-Easy-Deploy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
 
 # Check if this version is newer
@@ -236,9 +236,21 @@ COMPOSE_LEMMY_IMAGE="image: dessalines/lemmy:${LEMMY_VERSION:?}"
 COMPOSE_LEMMY_UI_IMAGE="image: dessalines/lemmy-ui:${LEMMY_VERSION:?}"
 
 # If the current system is not x86_64, we can't use the Docker Hub images
+# Also determine if .arm should be appended to the Dockerfile path
 CURRENT_PLATFORM="$(uname -m)"
+LEMMY_DOCKERFILE_PATH="docker/prod/Dockerfile"
 if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
+	# If the current platform isn't ARM either, this platform is not supported
+	if [[ "$CURRENT_PLATFORM" == arm* ]] || [[ "$CURRENT_PLATFORM" == "aarch64" ]]; then
+		LEMMY_DOCKERFILE_PATH="${LEMMY_DOCKERFILE_PATH:?}.arm"
+	else
+		echo >&2 "ERROR: Unknown architecture: $CURRENT_PLATFORM"
+		echo >&2 "Unfortunately, Lemmy Easy Deploy does not support your architecture at this time :("
+		exit 1
+	fi
+
 	BUILD_FROM_SOURCE="true"
+
 	echo
 	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	echo "WARN: Docker Hub does not have a Lemmy image that supports your platform ($CURRENT_PLATFORM)"
@@ -292,8 +304,20 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		exit 1
 	}
 
-	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./docker/prod/Dockerfile"
+	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./${LEMMY_DOCKERFILE_PATH}"
 	COMPOSE_LEMMY_UI_IMAGE="build: ./lemmy-ui"
+
+	# Make sure that Dockerfile actually exists
+	if [[ ! -f "./live/lemmy/${LEMMY_DOCKERFILE_PATH}" ]]; then
+		echo >&2 ""
+		echo >&2 "ERROR: Unable to find Lemmy Dockerfile for building"
+		echo >&2 "    No such file: ./live/lemmy/${LEMMY_DOCKERFILE_PATH}"
+		echo >&2 ""
+		echo >&2 "It is likely that Lemmy restructured their build files in a recent update."
+		echo >&2 "If Lemmy Easy Deploy is already up to date, please report this so I can find the correct file path:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	fi
 fi
 
 # Generate all the env files, make a Caddy directory since we'll need it
