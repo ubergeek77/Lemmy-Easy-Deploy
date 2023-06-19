@@ -6,7 +6,7 @@ Deploy Lemmy the easy way!
 Quick Start
 ---
 
-Make sure you have a server **that has ports 80 and 443 available,** and has already pointed a domain you control to your server's IP address.
+Make sure you have a server **that has ports 80 and 443 available,** and that you have already pointed a domain you control to your server's IP address.
 
 ***Running Lemmy-Easy-Deploy behind a separate webserver or reverse proxy is not supported.*** I've given you config options that may help you run it anyway (control of the ports, disable HTTPS in case it's externally managed), but if this is your use case, you are on your own. Sorry about that!
 
@@ -31,7 +31,7 @@ cp ./config.env.example ./config.env
 
 The default deployment as outlined above will get you running in ***about 1 minute!***
 
-*NOTE: on non x86_64 platforms, such as ARM, **Lemmy-Easy-Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles*
+*NOTE: on non x86_64 platforms, such as ARM, **Lemmy-Easy-Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles.*
 
 What is this?
 ---
