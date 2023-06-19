@@ -54,7 +54,7 @@ Updates
 
 If Lemmy releases a new update, simply run `./deploy.sh` again to deploy it. The script will automatically fetch the latest release and update your deployment. If a version of Lemmy you want to run has not been tagged yet, see below for how to specify versions.
 
-Over time, the recommended versions of `pictrs` and `postgres` may be updated by the Lemmy team. This script won't automatically pull those, and there isn't a great way to get those automatically. I will do my best to keep the template files in this repository up to date. If they change, you can check those files as a reference, or run `git pull` in `Lemmy-Easy-Deploy` to update them.
+Over time, the recommended versions of `pictrs` and `postgres` may be updated by the Lemmy team. This script won't automatically pull those, and there isn't a great way to get those automatically. I will do my best to keep the template files in this repository up to date. When I have released new updates to Lemmy-Easy-Deploy, the script will print a notce reminding you to update. The script ***will not** update itself.*
 
 CLI arguments and configuration:
 ---
@@ -79,7 +79,7 @@ There are some additional configuration options available in `config.env`. See t
 - ...and even more options for advanced users! See the comments in `config.env` for more details!
 
 
-FAQ & Troubleshooting:
+FAQ & Troubleshooting
 ---
 - I got some kind of `sed` error.
 	- Did you use special characters in any of the `config.env` options, such as a `|`? You will need to backslash escape it. Put `\` in front of any special characters, then try again. For example:
@@ -132,8 +132,18 @@ FAQ & Troubleshooting:
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
 	```
 
-Credits:
+Credits
 ---
 
 - The Lemmy project maintainers, for making Lemmy: https://github.com/LemmyNet/lemmy
 - [@QPixel](https://github.com/QPixel), for helping me QA test this
+
+
+Support me
+---
+
+I ***am not*** a maintainer or contributor to the Lemmy project. Lemmy does not belong to me and I did not make it. But, if my script helped you, and you would like to support me, I have crypto addresses:
+
+- Bitcoin: `bc1qekqn4ek0dkuzp8mau3z5h2y3mz64tj22tuqycg`
+- Monero/Ethereum: `0xdAe4F90E4350bcDf5945e6Fe5ceFE4772c3B9c9e`
+
