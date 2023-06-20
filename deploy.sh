@@ -6,7 +6,7 @@ LED_CURRENT_VERSION="1.0.4"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $SCRIPT_DIR
 
-debug_info() {
+diag_info() {
 	set +e
 	echo ""
 	echo "==== Docker Information ===="
@@ -101,7 +101,7 @@ display_help() {
 	echo "Options:"
 	echo "  -u|--update-version <version>   Override the update checker and update to <version> instead."
 	echo "  -f|--force-deploy               Skip the update checker and force (re)deploy the latest/specified version."
-	echo "  -d|--dump-debug                 Dump debug information for issue reporting, then exit"
+	echo "  -d|--diag                       Dump diagnostic information for issue reporting, then exit"
 	echo "  -h|--help                       Show this help message."
 	exit 1
 }
@@ -162,8 +162,8 @@ while (("$#")); do
 	-h | --help)
 		display_help
 		;;
-	-d | --debug)
-		debug_info
+	-d | --diag)
+		diag_info
 		exit 0
 		;;
 	-* | --*)
@@ -328,6 +328,7 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
+		echo "**/.git" >./.dockerignore
 	) || {
 		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
 		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
@@ -341,6 +342,7 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
+		echo "**/.git" >./.dockerignore
 	) || {
 		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
 		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
