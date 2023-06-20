@@ -328,7 +328,6 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
-		echo "**/.git" >./.dockerignore
 	) || {
 		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
 		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
@@ -342,7 +341,6 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
-		echo "**/.git" >./.dockerignore
 	) || {
 		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
 		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
