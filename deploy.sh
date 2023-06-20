@@ -1,13 +1,97 @@
 #!/bin/bash
 
+LED_CURRENT_VERSION="1.0.4"
+
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $SCRIPT_DIR
+
+debug_info() {
+	set +e
+	echo ""
+	echo "==== Docker Information ===="
+	detect_runtime
+	echo "==== System Information ===="
+	echo "$(uname -r) ($(uname -m))"
+	echo "SHELL: $SHELL"
+	if [[ ! -f "/etc/os-release" ]]; then
+		echo "*** /etc/os-release not found ***"
+	else
+		cat /etc/os-release
+	fi
+	echo ""
+	echo "==== Lemmy Easy Deploy Information ===="
+	echo "Version: $LED_CURRENT_VERSION"
+	echo "Integrity:"
+	echo "    $(sha256sum $0)"
+	for f in ./templates/*; do
+		echo "    $(sha256sum $f)"
+	done
+	echo ""
+}
+
+get_service_status() {
+	docker compose -p "lemmy-easy-deploy" ps -q $1 | xargs docker inspect --format='{{ .State.Status }}'
+}
 
 random_string() {
 	length=32
 	string=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "$length" | head -n 1)
 	echo "$string"
+}
+
+detect_runtime() {
+	# Check for docker or podman
+	for cmd in "podman" "docker"; do
+		if $cmd >/dev/null 2>&1; then
+			RUNTIME_CMD=$cmd
+			break
+		fi
+	done
+
+	if [[ -z "${RUNTIME_CMD}" ]]; then
+		echo >&2 "ERROR: Could not find a container runtime. Did you install Docker?"
+		echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
+		echo >&2 "     https://docs.docker.com/engine/install/#server"
+		exit 1
+	fi
+
+	# Check for docker compose or podman compose
+	if [[ "${RUNTIME_CMD}" == "podman" ]]; then
+		echo "WARN: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
+		COMPOSE_CMD="podman-compose"
+		if $COMPOSE_CMD >/dev/null 2>&1; then
+			COMPOSE_FOUND="true"
+		else
+			echo >&2 "ERROR: podman detected, but podman-compose is not installed. Please install podman-compose!"
+			exit 1
+		fi
+	else
+		for cmd in "docker compose" "docker-compose"; do
+			COMPOSE_CMD="${cmd}"
+			if $COMPOSE_CMD >/dev/null 2>&1; then
+				COMPOSE_FOUND="true"
+				break
+			fi
+		done
+	fi
+
+	if [[ "${COMPOSE_FOUND}" != "true" ]]; then
+		echo >&2 "ERROR: Could not find Docker Compose. Is Docker Compose installed?"
+		echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
+		echo >&2 "     https://docs.docker.com/engine/install/#server"
+		exit 1
+	fi
+
+	echo "Detected runtime: $RUNTIME_CMD ($($RUNTIME_CMD --version))"
+	echo "Detected compose: $COMPOSE_CMD ($($COMPOSE_CMD version))"
+
+	RUNTIME_STATE="ERROR"
+	if docker run --rm -it -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
+		RUNTIME_STATE="OK"
+	fi
+	echo "   Runtime state: $RUNTIME_STATE"
+	echo ""
 }
 
 display_help() {
@@ -17,12 +101,12 @@ display_help() {
 	echo "Options:"
 	echo "  -u|--update-version <version>   Override the update checker and update to <version> instead."
 	echo "  -f|--force-deploy               Skip the update checker and force (re)deploy the latest/specified version."
+	echo "  -d|--dump-debug                 Dump debug information for issue reporting, then exit"
 	echo "  -h|--help                       Show this help message."
 	exit 1
 }
 
 # Check for LED updates
-LED_CURRENT_VERSION="1.0.3"
 LED_UPDATE_CHECK="$(curl -s https://api.github.com/repos/ubergeek77/Lemmy-Easy-Deploy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
 
 # Check if this version is newer
@@ -78,6 +162,10 @@ while (("$#")); do
 	-h | --help)
 		display_help
 		;;
+	-d | --debug)
+		debug_info
+		exit 0
+		;;
 	-* | --*)
 		echo "ERROR: Unsupported flag $1" >&2
 		display_help
@@ -91,52 +179,8 @@ while (("$#")); do
 	esac
 done
 
-# Check for docker or podman
-for cmd in "podman" "docker"; do
-	if $cmd >/dev/null 2>&1; then
-		RUNTIME_CMD=$cmd
-		break
-	fi
-done
-
-if [[ -z "${RUNTIME_CMD}" ]]; then
-	echo >&2 "ERROR: Could not find a container runtime. Did you install Docker?"
-	echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
-	echo >&2 "     https://docs.docker.com/engine/install/#server"
-	exit 1
-fi
-
-# Check for docker compose or podman compose
-if [[ "${RUNTIME_CMD}" == "podman" ]]; then
-	echo "WARN: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
-	COMPOSE_CMD="podman-compose"
-	if $COMPOSE_CMD >/dev/null 2>&1; then
-		COMPOSE_FOUND="true"
-	else
-		echo >&2 "ERROR: podman detected, but podman-compose is not installed. Please install podman-compose!"
-		exit 1
-	fi
-else
-	for cmd in "docker compose" "docker-compose"; do
-		COMPOSE_CMD="${cmd}"
-		if $COMPOSE_CMD >/dev/null 2>&1; then
-			COMPOSE_FOUND="true"
-			break
-		fi
-	done
-fi
-
-if [[ "${COMPOSE_FOUND}" != "true" ]]; then
-	echo >&2 "ERROR: Could not find Docker Compose. Is Docker Compose installed?"
-	echo >&2 "Please click on your server distribution in the list here, then follow the installation instructions:"
-	echo >&2 "     https://docs.docker.com/engine/install/#server"
-	exit 1
-fi
-
-echo
-echo "Detected runtime: $($RUNTIME_CMD --version)"
-echo "Detected compose: $($COMPOSE_CMD version)"
-echo
+echo ""
+detect_runtime
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
@@ -396,12 +440,58 @@ sed -i -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
 	$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
-	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
+
+# Do health checks
+# Give it 2 seconds to start up
+echo ""
+echo "Checking deployment status..."
+sleep 2
+
+# Services every deployment should have
+declare -a health_checks=("proxy" "lemmy" "lemmy-ui" "pictrs" "postgres")
+
+# Add postfix if the user configured that
+if [[ "${USE_EMAIL}" == "true" ]] || [[ "${USE_EMAIL}" == "1" ]]; then
+	health_checks+=("postfix")
+fi
+
+for service in "${health_checks[@]}"; do
+	printf "Checking ${service}... "
+	SERVICE_STATE="$(get_service_status $service)"
+	if [[ "${SERVICE_STATE}" != "running" ]]; then
+		# Give it a little bit...
+		printf "${SERVICE_STATE} ... "
+		sleep 5
+		SERVICE_STATE="$(get_service_status $service)"
+		if [[ "${SERVICE_STATE}" != "running" ]]; then
+			echo "FAILED"
+			echo ""
+			echo >&2 "ERROR: Service $service unhealthy. Deployment failed."
+			echo >&2 "Dumping logs... "
+			LOG_FILENAME="failure-$(date +%s).log"
+			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >./${LOG_FILENAME:?}
+			echo >&2 ""
+			echo >&2 "Logs dumped to: ./${LOG_FILENAME:?}"
+			echo >&2 "(DO NOT POST THESE LOGS PUBLICLY, THEY MAY CONTAIN SENSITIVE INFORMATION)"
+			echo >&2 ""
+			echo >&2 "Shutting down failed deployment..."
+			$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
+			exit 1
+		else
+			echo "OK!"
+		fi
+	else
+		echo "OK!"
+	fi
+	sleep 1
+done
 
 # Write version file
 echo ${LEMMY_VERSION:?} >./live/version
 
+echo
 echo "Setup complete! Lemmy version ${LEMMY_VERSION:?} deployed!"
 echo
 

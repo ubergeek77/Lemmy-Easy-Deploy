@@ -81,6 +81,24 @@ There are some additional configuration options available in `config.env`. See t
 
 FAQ & Troubleshooting
 ---
+- Where is my password?
+	- On your ***first*** deployment, these credentials will also be printed to the console.
+	- If you need them again, check `./live/lemmy.hjson` for your first time setup credentials, or run:
+
+	```bash
+	cat ./live/lemmy.hjson | grep -e "admin_.*:"
+	```
+
+- I can't reach my Lemmy instance and/or HTTPS isn't working!
+	- Make sure your firewall isn't blocking ports 80 and 443. On most server distributions, `ufw` blocks this by default, so check your `ufw` settings
+	- **If you're using Cloudflare's proxy,** specify an API token in `config.env`, **and change Cloudflare's SSL mode to Full (Strict)**.
+
+- I get a "too many redirects" error!
+	- Are you using the Cloudflare proxy? If yes, try entering your Cloudflare API token in `config.env`, changing the SSL/TLS mode to "Full (Strict)" in Cloudflare, then redeploy by running `./deploy.sh -f`
+
+- I can't sign up for my instance!
+	- Check the Lemmy docs for a guide on first-time setup: https://join-lemmy.org/docs/en/administration/first_steps.html
+
 - I got some kind of `sed` error.
 	- Did you use special characters in any of the `config.env` options, such as a `|`? You will need to backslash escape it. Put `\` in front of any special characters, then try again. For example:
 	```bash
@@ -94,14 +112,6 @@ FAQ & Troubleshooting
 	docker volume ls
 	```
 
-- How can I check the logs?
-	- You can use this command to see a live feed of logs `docker compose -p lemmy-easy-deploy logs -f`
-	- By default, each service will log up to 500MB of data, removing old log messages if this cap is reached.
-	- To find your log files and find out which ones are taking up space, use:
-	```bash
-	du -h $(docker inspect --format='{{.LogPath}}' $(docker ps -qa))
-	```
-
 - How can I run regular `docker compose` commands?
   - This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`
   - Therefore, you will have to `cd ./live`, then run:
@@ -110,27 +120,17 @@ FAQ & Troubleshooting
   ```
   - `<command>` can be whatever Docker Compose supports, up,down,ps, etc.
 
+- How can I check the logs?
+	- You can use this command to see a live feed of logs `docker compose -p lemmy-easy-deploy logs -f`
+	- By default, each service will log up to 500MB of data, removing old log messages if this cap is reached.
+	- To find your log files and find out which ones are taking up space, use:
+	```bash
+	du -h $(docker inspect --format='{{.LogPath}}' $(docker ps -qa))
+	```
+
 - I have some special use case involving a separate webserver and reverse proxies.
 	- Sorry, but as that kind of configuration can vary significantly, this is not a use case I can support. Lemmy-Easy-Deploy is intended for users new to hosting and do not have any webservers set up at all.
 	- However, I do provide you with some options in `config.env` that may help you configure Lemmy-Easy-Deploy to work with this kind of setup. Hopefully those options will be of use to you!
-
-- I can't reach my Lemmy instance and/or HTTPS isn't working!
-	- Make sure your firewall isn't blocking ports 80 and 443. On most server distributions, `ufw` blocks this by default, so check your `ufw` settings
-	- If you're using Cloudflare's proxy, specify an API token in `config.env`. This will switch to DNS certificate generation which should avoid any HTTPS issues.
-
-- I get a "too many redirects" error!
-	- Are you using the Cloudflare proxy? If yes, try entering your Cloudflare API token in `config.env`, changing the SSL/TLS mode to "Full (Strict)" in Cloudflare, then redeploy by running `./deploy.sh -f`
-
-- I can't sign up for my instance!
-	- Check the Lemmy docs for a guide on first-time setup: https://join-lemmy.org/docs/en/administration/first_steps.html
-
-- Where is my password?
-	- On your ***first*** deployment, these credentials will also be printed to the console.
-	- If you need them again, check `./live/lemmy.hjson` for your first time setup credentials, or run:
-
-	```bash
-	cat ./live/lemmy.hjson | grep -e "admin_.*:"
-	```
 
 Credits
 ---

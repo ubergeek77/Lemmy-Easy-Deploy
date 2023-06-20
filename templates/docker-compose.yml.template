@@ -12,7 +12,7 @@ services:
     env_file:
       - ./caddy.env
     volumes:
-      - $PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
