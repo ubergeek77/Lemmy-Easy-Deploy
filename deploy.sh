@@ -96,7 +96,7 @@ detect_runtime() {
 
 display_help() {
 	echo "Usage:"
-	echo "  $0 [-u|--update-version <version>] [-f|--force-deploy] [-h|--help]"
+	echo "  $0 [-u|--update-version <version>] [-f|--force-deploy] [-d|--diag] [-h|--help]"
 	echo ""
 	echo "Options:"
 	echo "  -u|--update-version <version>   Override the update checker and update to <version> instead."

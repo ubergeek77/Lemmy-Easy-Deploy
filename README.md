@@ -61,11 +61,12 @@ CLI arguments and configuration:
 
 ```bash
 Usage:
-  ./deploy.sh [-u|--update-version <version>] [-f|--force-deploy] [-h|--help]
+  ./deploy.sh [-u|--update-version <version>] [-f|--force-deploy] [-d|--diag] [-h|--help]
 
 Options:
   -u|--update-version <version>   Override the update checker and update to <version> instead.
   -f|--force-deploy               Skip the update checker and force (re)deploy the latest/specified version.
+  -d|--diag                       Dump diagnostic information for issue reporting, then exit
   -h|--help                       Show this help message.
 ```
 
