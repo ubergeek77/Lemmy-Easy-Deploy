@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.0.8"
+LED_CURRENT_VERSION="1.0.9"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -76,32 +76,38 @@ get_service_status() {
 	# Do this check in a loop in case Docker Compose is unreachable
 	# Can happen on slow systems
 	# If the stack ultimately cannot be contacted, show status as UNREACHABLE
-	loop_n=0
-	while [ $loop_n -lt 10 ]; do
-		unset CONTAINER_ID
-		unset SVC_STATUS
-		loop_n=$((loop_n + 1))
-		CONTAINER_ID="$($COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1)"
-		if [ $? -ne 0 ]; then
-			sleep 5
-			continue
-		fi
-		SVC_STATUS="$(echo $CONTAINER_ID | xargs docker inspect --format='{{ .State.Status }}')"
-		if [ $? -ne 0 ]; then
-			sleep 5
-			continue
-		fi
+	# Run in a subshell where we cd to ./live first
+	# Some Docker distributions don't like only having the stack name and "need" to be in the same directory
+	(
+		cd ./live
+		loop_n=0
+		while [ $loop_n -lt 10 ]; do
+			unset CONTAINER_ID
+			unset SVC_STATUS
+			loop_n=$((loop_n + 1))
+			# Change to the ./live folder first,
+			CONTAINER_ID="$($COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1)"
+			if [ $? -ne 0 ]; then
+				sleep 5
+				continue
+			fi
+			SVC_STATUS="$(echo $CONTAINER_ID | xargs docker inspect --format='{{ .State.Status }}')"
+			if [ $? -ne 0 ]; then
+				sleep 5
+				continue
+			fi
+			if [[ -z "${SVC_STATUS}" ]]; then
+				sleep 5
+				continue
+			fi
+			break
+		done
 		if [[ -z "${SVC_STATUS}" ]]; then
-			sleep 5
-			continue
+			echo "UNREACHABLE"
+		else
+			echo "$SVC_STATUS"
 		fi
-		break
-	done
-	if [[ -z "${SVC_STATUS}" ]]; then
-		echo "UNREACHABLE"
-	else
-		echo "$SVC_STATUS"
-	fi
+	)
 }
 
 random_string() {
@@ -251,6 +257,21 @@ done
 
 echo ""
 detect_runtime
+
+# If the runtime state is bad, we can't continue
+if [[ "${RUNTIME_STATE}" != "OK" ]]; then
+	echo >&2 ""
+	echo >&2 "ERROR: Docker runtime not healthy."
+	echo >&2 "Something is wrong with your Docker installation."
+	echo >&2 "Please ensure you can run the following command on your own without errors:"
+	echo >&2 "    docker run --rm -it -v "\$\(pwd\):/host:ro" hello-world"
+	echo >&2 ""
+	echo >&2 "If you see any errors while running that command, please Google the error messages"
+	echo >&2 "to see if any of the solutions work for you. Once Docker is functional on your system,"
+	echo >&2 "you can try running Lemmy Easy Deploy again."
+	echo >&2 ""
+	exit 1
+fi
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
