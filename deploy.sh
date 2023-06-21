@@ -1,10 +1,29 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.0.7"
+LED_CURRENT_VERSION="1.0.8"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $SCRIPT_DIR
+
+load_env() {
+	# Source the config file
+	source ./config.env
+
+	# Make sure nothing is missing
+	LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
+	BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
+	SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
+	CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-80}"
+	CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-443}"
+	USE_EMAIL="${USE_EMAIL:-false}"
+	CADDY_DISABLE_TLS="${CADDY_DISABLE_TLS:-false}"
+	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
+	TLS_ENABLED="${TLS_ENABLED:-true}"
+	SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
+	LEMMY_NOREPLY_DISPLAY="${LEMMY_NOREPLY_DISPLAY:-Lemmy NoReply}"
+	LEMMY_NOREPLY_FROM="${LEMMY_NOREPLY_FROM:-noreply}"
+}
 
 diag_info() {
 	set +e
@@ -12,7 +31,9 @@ diag_info() {
 	echo "==== Docker Information ===="
 	detect_runtime
 	echo "==== System Information ===="
-	echo "$(uname -r) ($(uname -m))"
+	echo "MEMORY: $(free -h)"
+	echo ""
+	echo "KERNEL: $(uname -r) ($(uname -m))"
 	echo "SHELL: $SHELL"
 	if [[ ! -f "/etc/os-release" ]]; then
 		echo "*** /etc/os-release not found ***"
@@ -28,10 +49,59 @@ diag_info() {
 		echo "    $(sha256sum $f)"
 	done
 	echo ""
+	echo "==== Settings ===="
+	if [[ ! -f "./config.env" ]]; then
+		echo "*** config.env not found ***"
+	else
+		load_env
+		echo "BUILD_FROM_SOURCE=$BUILD_FROM_SOURCE"
+		echo "CADDY_HTTP_PORT=$CADDY_HTTP_PORT"
+		echo "CADDY_HTTPS_PORT=$CADDY_HTTPS_PORT"
+		echo "USE_EMAIL=$USE_EMAIL"
+		echo "CADDY_DISABLE_TLS=$CADDY_DISABLE_TLS"
+		echo "POSTGRES_POOL_SIZE=$POSTGRES_POOL_SIZE"
+		echo "TLS_ENABLED=$TLS_ENABLED"
+	fi
+	echo ""
+	echo "==== Generated Files ===="
+	if [[ ! -d "./live" ]]; then
+		echo "*** No files generated ***"
+	else
+		ls -lhn ./live/
+	fi
+	echo ""
 }
 
 get_service_status() {
-	$COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1 | xargs docker inspect --format='{{ .State.Status }}'
+	# Do this check in a loop in case Docker Compose is unreachable
+	# Can happen on slow systems
+	# If the stack ultimately cannot be contacted, show status as UNREACHABLE
+	loop_n=0
+	while [ $loop_n -lt 10 ]; do
+		unset CONTAINER_ID
+		unset SVC_STATUS
+		loop_n=$((loop_n + 1))
+		CONTAINER_ID="$($COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1)"
+		if [ $? -ne 0 ]; then
+			sleep 5
+			continue
+		fi
+		SVC_STATUS="$(echo $CONTAINER_ID | xargs docker inspect --format='{{ .State.Status }}')"
+		if [ $? -ne 0 ]; then
+			sleep 5
+			continue
+		fi
+		if [[ -z "${SVC_STATUS}" ]]; then
+			sleep 5
+			continue
+		fi
+		break
+	done
+	if [[ -z "${SVC_STATUS}" ]]; then
+		echo "UNREACHABLE"
+	else
+		echo "$SVC_STATUS"
+	fi
 }
 
 random_string() {
@@ -189,22 +259,7 @@ if [[ ! -f "./config.env" ]]; then
 	exit 1
 fi
 
-# Source the config file
-source ./config.env
-
-# Make sure nothing is missing
-LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
-BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
-SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
-CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-80}"
-CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-443}"
-USE_EMAIL="${USE_EMAIL:-false}"
-CADDY_DISABLE_TLS="${CADDY_DISABLE_TLS:-false}"
-POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
-TLS_ENABLED="${TLS_ENABLED:-true}"
-SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
-LEMMY_NOREPLY_DISPLAY="${LEMMY_NOREPLY_DISPLAY:-Lemmy NoReply}"
-LEMMY_NOREPLY_FROM="${LEMMY_NOREPLY_FROM:-noreply}"
+load_env
 
 # Yell at the user if they didn't follow instructions, again
 if [[ -z "$LEMMY_HOSTNAME" ]] || [[ "$LEMMY_HOSTNAME" == "example.com" ]]; then
