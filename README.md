@@ -3,14 +3,19 @@ Lemmy-Easy-Deploy
 
 Deploy Lemmy the easy way!
 
-Quick Start
+Prerequisites & Quick Start
 ---
 
-Make sure you have a server **that has ports 80 and 443 available,** and that you have already pointed a domain you control to your server's IP address.
+1. Make sure your server **has ports 80 and 443 available** (no webservers are already running).
+	- Advanced users can define different ports to use.
+2. Buy a domain name to use for Lemmy.
+3. Set that domain's DNS records to point to your server's **public IP address**.
+4. Install the ***official*** version of Docker to your server.
+	- That means NOT using the version of Docker and Docker Compose supplied by your distribution (looking at you, Ubuntu!)
+	- To ensure you have the ***official*** version of Docker, [follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server).
+	- *You will probably need to reboot after installing.*
 
-***Running Lemmy-Easy-Deploy behind a separate webserver or reverse proxy is not supported.*** I've given you config options that may help you run it anyway (control of the ports, disable HTTPS in case it's externally managed), but if this is your use case, you are on your own. Sorry about that!
-
-Before running the commands, make sure you have Docker installed. [Follow the instructions for installing Docker and Docker Compose for your server distribution](https://docs.docker.com/engine/install/#server). Then:
+Once you've done all that, you're ready for the quickstart!
 
 ```
 # Clone the repo
