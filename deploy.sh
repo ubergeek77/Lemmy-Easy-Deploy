@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.0.6"
+LED_CURRENT_VERSION="1.0.7"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -31,7 +31,7 @@ diag_info() {
 }
 
 get_service_status() {
-	docker compose -p "lemmy-easy-deploy" ps -q $1 | xargs docker inspect --format='{{ .State.Status }}'
+	$COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1 | xargs docker inspect --format='{{ .State.Status }}'
 }
 
 random_string() {
