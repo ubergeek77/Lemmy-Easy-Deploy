@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.0.9"
+LED_CURRENT_VERSION="1.1.0"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -85,7 +85,6 @@ get_service_status() {
 			unset CONTAINER_ID
 			unset SVC_STATUS
 			loop_n=$((loop_n + 1))
-			# Change to the ./live folder first,
 			CONTAINER_ID="$($COMPOSE_CMD -p "lemmy-easy-deploy" ps -q $1)"
 			if [ $? -ne 0 ]; then
 				sleep 5
@@ -214,9 +213,6 @@ if ((LED_CURRENT_VERSION_NUMERIC < LED_UPDATE_CHECK_NUMERIC)); then
 	echo "================================================================"
 fi
 
-# Exit on error
-set -e
-
 # parse arguments
 while (("$#")); do
 	case "$1" in
@@ -255,12 +251,14 @@ while (("$#")); do
 	esac
 done
 
+echo "========================================"
+echo "Lemmy-Easy-Deploy by ubergeek77 (v${LED_CURRENT_VERSION})"
+echo "========================================"
 echo ""
 detect_runtime
 
 # If the runtime state is bad, we can't continue
 if [[ "${RUNTIME_STATE}" != "OK" ]]; then
-	echo >&2 ""
 	echo >&2 "ERROR: Docker runtime not healthy."
 	echo >&2 "Something is wrong with your Docker installation."
 	echo >&2 "Please ensure you can run the following command on your own without errors:"
@@ -272,6 +270,9 @@ if [[ "${RUNTIME_STATE}" != "OK" ]]; then
 	echo >&2 ""
 	exit 1
 fi
+
+# Exit on error
+set -e
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
