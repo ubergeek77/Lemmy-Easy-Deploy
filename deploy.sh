@@ -357,37 +357,10 @@ COMPOSE_LEMMY_IMAGE="image: dessalines/lemmy:${LEMMY_VERSION:?}"
 COMPOSE_LEMMY_UI_IMAGE="image: dessalines/lemmy-ui:${LEMMY_VERSION:?}"
 
 # If the current system is not x86_64, we can't use the Docker Hub images
-# Also determine if .arm should be appended to the Dockerfile path
-
-# TEMPORARY 0.18 COMPATIBILITY FIXES
-# Search for docker/Dockerfile first (0.18), and if it doesn't exist.
-# fall back to docker/prod/Dockerfile (0.17.4)
-# If docker/Dockerfile exists, don't append .arm since they removed it
-# I have no idea if 0.18 even builds on ARM yet. Sorry to anyone if it doesn't!
-# I'll get a more formal fix out for any 0.18 issues once it releases and I have some time
-# What will likely end up happening is 0.17 support is removed. Not much sense running an old version anyway
 CURRENT_PLATFORM="$(uname -m)"
 
-if [[ -f ./live/lemmy/docker/Dockerfile ]]; then
-	ARM_SUFFIX=""
-	LEMMY_DOCKERFILE_PATH="docker/Dockerfile"
-else
-	ARM_SUFFIX=".arm"
-	LEMMY_DOCKERFILE_PATH="docker/prod/Dockerfile"
-fi
-
 if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
-	# If the current platform isn't ARM either, this platform is not supported
-	if [[ "$CURRENT_PLATFORM" == arm* ]] || [[ "$CURRENT_PLATFORM" == "aarch64" ]]; then
-		LEMMY_DOCKERFILE_PATH="${LEMMY_DOCKERFILE_PATH:?}${ARM_SUFFIX}"
-	else
-		echo >&2 "ERROR: Unknown architecture: $CURRENT_PLATFORM"
-		echo >&2 "Unfortunately, Lemmy Easy Deploy does not support your architecture at this time :("
-		exit 1
-	fi
-
 	BUILD_FROM_SOURCE="true"
-
 	echo
 	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	echo "WARN: Docker Hub does not have a Lemmy image that supports your platform ($CURRENT_PLATFORM)"
@@ -418,6 +391,8 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 	(
 		set -e
 		cd ./live/lemmy
+		git reset --hard
+		git clean -fdx
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
@@ -431,6 +406,8 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 	(
 		set -e
 		cd ./live/lemmy-ui
+		git reset --hard
+		git clean -fdx
 		git checkout main
 		git pull
 		git checkout ${LEMMY_VERSION:?}
@@ -440,6 +417,34 @@ if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]
 		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
 		exit 1
 	}
+
+	# TEMPORARY 0.18 COMPATIBILITY FIXES
+	# Search for docker/Dockerfile first (0.18), and if it doesn't exist.
+	# fall back to docker/prod/Dockerfile (0.17.4)
+	# If docker/Dockerfile exists, don't append .arm since they removed it
+	# I have no idea if 0.18 even builds on ARM yet. Sorry to anyone if it doesn't!
+	# I'll get a more formal fix out for any 0.18 issues once it releases and I have some time
+	# What will likely end up happening is 0.17 support is removed. Not much sense running an old version anyway
+	# Also determine if .arm should be appended to the Dockerfile path
+	# I know this is terrible but I don't want to wake up to a bunch of issues and it's late T_T
+	if [[ -f ./live/lemmy/docker/Dockerfile ]]; then
+		ARM_SUFFIX=""
+		LEMMY_DOCKERFILE_PATH="docker/Dockerfile"
+	else
+		ARM_SUFFIX=".arm"
+		LEMMY_DOCKERFILE_PATH="docker/prod/Dockerfile"
+	fi
+
+	# If the current platform isn't ARM either, this platform is not supported
+	if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
+		if [[ "$CURRENT_PLATFORM" == arm* ]] || [[ "$CURRENT_PLATFORM" == "aarch64" ]]; then
+			LEMMY_DOCKERFILE_PATH="${LEMMY_DOCKERFILE_PATH:?}${ARM_SUFFIX}"
+		else
+			echo >&2 "ERROR: Unknown architecture: $CURRENT_PLATFORM"
+			echo >&2 "Unfortunately, Lemmy Easy Deploy does not support your architecture at this time :("
+			exit 1
+		fi
+	fi
 
 	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./${LEMMY_DOCKERFILE_PATH}"
 	COMPOSE_LEMMY_UI_IMAGE="build: ./lemmy-ui"
