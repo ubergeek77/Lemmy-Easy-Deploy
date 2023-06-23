@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.1.2"
+LED_CURRENT_VERSION="1.1.3"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -349,6 +349,23 @@ else
 		echo "No updates available."
 		exit 0
 	fi
+fi
+
+if [[ $LEMMY_VERSION == *"0.18"* ]]; then
+	echo ""
+	echo "!!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+	echo ""
+	echo "UPGRADING TO 0.18.0 IS NOT ADVISED DUE TO AN UPSTREAM ISSUE:"
+	echo "  * https://github.com/LemmyNet/lemmy/issues/3296"
+	echo ""
+	echo "This is NOT a Lemmy-Easy-Deploy issue, this is a core Lemmy issue!"
+	echo ""
+	echo "Since Lemmy performs a database migration on updates, you may not be able to downgrade!"
+	echo "THIS IS YOUR LAST WARNING, PRESS CTRL+C NOW TO CANCEL THIS DEPLOYMENT IF YOU DO NOT WANT TO UPDATE"
+	echo ""
+	echo "!!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+	echo "Continuing in 20 seconds..."
+	sleep 20
 fi
 
 # Define default strings for docker-compose.yml
