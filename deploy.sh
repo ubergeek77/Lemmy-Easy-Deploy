@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.1.1"
+LED_CURRENT_VERSION="1.1.2"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -362,11 +362,15 @@ CURRENT_PLATFORM="$(uname -m)"
 if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
 	BUILD_FROM_SOURCE="true"
 	echo
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-	echo "WARN: Docker Hub does not have a Lemmy image that supports your platform ($CURRENT_PLATFORM)"
-	echo "Lemmy-Easy-Deploy will now fall back to compiling Lemmy from source. This may take about 30 minutes!"
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	echo "WARN: Builds for your platform ($CURRENT_PLATFORM) are currently broken"
+	echo "See this issue for more details: https://github.com/LemmyNet/lemmy/issues/3102"
+	echo "In the optimistic case that you are trying to deploy 0.17.4 or below, Lemmy Easy Deploy will continue"
+	echo "But otherwise, if you're trying to deploy 0.18.0, you will see some errors and the deploy will fail :("
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	echo
+	echo "Continuing in 10 seconds..."
+	sleep 10
 fi
 
 # Download the sources if we are doing a from-source build
