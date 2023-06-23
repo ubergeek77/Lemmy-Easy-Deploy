@@ -368,7 +368,7 @@ COMPOSE_LEMMY_UI_IMAGE="image: dessalines/lemmy-ui:${LEMMY_VERSION:?}"
 # What will likely end up happening is 0.17 support is removed. Not much sense running an old version anyway
 CURRENT_PLATFORM="$(uname -m)"
 
-if [[ -f "./live/lemmy/docker/Dockerfile" ]]; then
+if [[ -f ./live/lemmy/docker/Dockerfile ]]; then
 	ARM_SUFFIX=""
 	LEMMY_DOCKERFILE_PATH="docker/Dockerfile"
 else
