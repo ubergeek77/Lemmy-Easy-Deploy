@@ -29,8 +29,6 @@ services:
 
   lemmy:
     {{COMPOSE_LEMMY_IMAGE}}
-    environment:
-      - RUST_LOG="warn,lemmy_server=info,lemmy_api=info,lemmy_api_common=info,lemmy_api_crud=info,lemmy_apub=info,lemmy_db_schema=info,lemmy_db_views=info,lemmy_db_views_actor=info,lemmy_db_views_moderator=info,lemmy_routes=info,lemmy_utils=info,lemmy_websocket=info"
     volumes:
       - ./lemmy.hjson:/config/config.hjson
     depends_on:
@@ -47,7 +45,6 @@ services:
     environment:
       - LEMMY_UI_LEMMY_INTERNAL_HOST=lemmy:8536
       - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
-      - LEMMY_HTTPS=true
     depends_on:
       - lemmy
     networks:
@@ -56,8 +53,14 @@ services:
     logging: *default-logging
 
   pictrs:
-    image: asonix/pictrs:0.3.1
+    image: asonix/pictrs:0.4.0-beta.19
     user: 991:991
+    environment:
+      - PICTRS__MEDIA__VIDEO_CODEC=vp9
+      - PICTRS__MEDIA__GIF__MAX_WIDTH=256
+      - PICTRS__MEDIA__GIF__MAX_HEIGHT=256
+      - PICTRS__MEDIA__GIF__MAX_AREA=65536
+      - PICTRS__MEDIA__GIF__MAX_FRAME_COUNT=400
     env_file:
       - ./pictrs.env
     volumes:
