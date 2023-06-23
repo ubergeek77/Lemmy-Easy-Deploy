@@ -353,19 +353,22 @@ fi
 
 if [[ $LEMMY_VERSION == *"0.18"* ]]; then
 	echo ""
-	echo "!!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
-	echo ""
-	echo "UPGRADING TO 0.18.0 IS NOT ADVISED DUE TO AN UPSTREAM ISSUE:"
+	echo "UPGRADING TO 0.18.0 IS DISABLED DUE TO MULTIPLE SERVER-BREAKING ISSUES:"
 	echo "  * https://github.com/LemmyNet/lemmy/issues/3296"
+	echo "  * https://github.com/LemmyNet/lemmy-ui/issues/1530"
 	echo ""
-	echo "This is NOT a Lemmy-Easy-Deploy issue, this is a core Lemmy issue!"
+	echo "These are NOT Lemmy-Easy-Deploy issues, these are core Lemmy issues!"
 	echo ""
-	echo "Since Lemmy performs a database migration on updates, you may not be able to downgrade!"
-	echo "THIS IS YOUR LAST WARNING, PRESS CTRL+C NOW TO CANCEL THIS DEPLOYMENT IF YOU DO NOT WANT TO UPDATE"
+	echo "For the safety of your data, Lemmy-Easy-Deploy will NOT upgrade your deployment to 0.18.x"
 	echo ""
-	echo "!!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
-	echo "Continuing in 20 seconds..."
-	sleep 20
+	echo "I will keep an eye on the Lemmy project and remove this block when upgrading is safe. In the meantime,"
+	echo "you can try deploying 0.17.4 instead:"
+	echo ""
+	echo "./deploy.sh -u 0.17.4"
+	echo ""
+	echo "This script will now exit."
+	echo ""
+	exit 1
 fi
 
 # Define default strings for docker-compose.yml
