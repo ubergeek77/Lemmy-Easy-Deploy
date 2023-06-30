@@ -32,6 +32,7 @@ load_env() {
 
 	# Check if we have old vars
 	if [[ ${#old_vars[@]} -gt 0 ]]; then
+		echo
 		echo "WARN: You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
 		# Loop over the array elements and print them line by line
 		for var in "${old_vars[@]}"; do
@@ -42,10 +43,12 @@ load_env() {
 		if ! ask_user "Do you want to continue regardless?"; then
 			exit 0
 		fi
+		echo
 	fi
 
 	# Check if we are missing new vars
 	if [[ ${#new_vars[@]} -gt 0 ]]; then
+		echo
 		echo "WARN: You are missing variables introduced in a new version of Lemmy-Easy-Deploy:"
 		# Loop over the array elements and print them line by line
 		for var in "${new_vars[@]}"; do
@@ -56,6 +59,7 @@ load_env() {
 		if ! ask_user "Do you want to continue regardless?"; then
 			exit 0
 		fi
+		echo
 	fi
 
 	# Make sure nothing is missing
