@@ -12,6 +12,52 @@ load_env() {
 	# Source the config file
 	source ./config.env
 
+	# Check if we have an old environment variable from the previous version of Lemmy-Easy-Deploy
+	known_old=("${BUILD_FROM_SOURCE}" "${TLS_ENABLED}" "${LEMMY_NOREPLY_DISPLAY}" "${LEMMY_NOREPLY_FROM}")
+	declare -a old_vars
+	for var in "${known_old[@]}"; do
+		if [[ -n "${!var}" ]]; then
+			old_vars+=("$var")
+		fi
+	done
+
+	# Check if we DON'T have a new environment variable from this version of Lemmy-Easy-Deploy
+	known_new=("${LEMMY_TLS_ENABLED}" "${SMTP_SERVER}" "${SMTP_PORT}" "${SMTP_NOREPLY_DISPLAY}" "${SMTP_NOREPLY_FROM}" "${ENABLE_POSTFIX}")
+	declare -a new_vars
+	for var in "${known_new[@]}"; do
+		if [[ -z "${!var}" ]]; then
+			new_vars+=("$var")
+		fi
+	done
+
+	# Check if we have old vars
+	if [[ ${#old_vars[@]} -gt 0 ]]; then
+		echo "WARN: You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
+		# Loop over the array elements and print them line by line
+		for var in "${old_vars[@]}"; do
+			echo "* $var"
+		done
+		echo "WARN: Please update your config.env based on the latest config.env.example"
+		echo "WARN: This deployment may have unexpected behavior until you do this!"
+		if ! ask_user "Do you want to continue regardless?"; then
+			exit 0
+		fi
+	fi
+
+	# Check if we are missing new vars
+	if [[ ${#new_vars[@]} -gt 0 ]]; then
+		echo "WARN: You are missing variables introduced in a new version of Lemmy-Easy-Deploy:"
+		# Loop over the array elements and print them line by line
+		for var in "${new_vars[@]}"; do
+			echo "* $var"
+		done
+		echo "WARN: Please update your config.env based on the latest config.env.example"
+		echo "WARN: This deployment may have unexpected behavior until you do this!"
+		if ! ask_user "Do you want to continue regardless?"; then
+			exit 0
+		fi
+	fi
+
 	# Make sure nothing is missing
 	LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
 	SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
@@ -27,6 +73,7 @@ load_env() {
 	SMTP_NOREPLY_FROM="${SMTP_NOREPLY_FROM:-noreply@${LEMMY_HOSTNAME}}"
 	ENABLE_POSTFIX="${ENABLE_POSTFIX:-false}"
 	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
+
 }
 
 diag_info() {
@@ -362,7 +409,7 @@ check_image_arch() {
 	fi
 
 	# Handle single-arch images
-	if echo "$MANIFEST" | grep -Evq 'Platform|"architecture"'; then
+	if ! echo "$MANIFEST" | grep -Eq 'Platform|"architecture"'; then
 		echo "! No reported architecture for $1; assuming linux/amd64"
 		if [[ "${DOCKER_ARCH}" == "amd64" ]]; then
 			return 0
@@ -670,7 +717,7 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "| THIS IS YOUR ONLY OPPORTUNITY TO MAKE A BACKUP OF YOUR LEMMY DATA |"
 		echo "|                                                                   |"
 		echo "| You are encouraged to read the Lemmy issue tracker before         |"
-		echo "| updating, to ensure aLemmy update does not corrupt your database. |"
+		echo "| updating, to ensure a Lemmy update does not corrupt your database |"
 		echo "|                                                                   |"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|-------------------------------------------------------------------|"
@@ -928,6 +975,8 @@ for service in "${health_checks[@]}"; do
 			echo >&2 ""
 			echo >&2 "Logs dumped to: ./${LOG_FILENAME:?}"
 			echo >&2 "(DO NOT POST THESE LOGS PUBLICLY, THEY MAY CONTAIN SENSITIVE INFORMATION)"
+			echo >&2 ""
+			echo >&2 "Please check these logs for potential easy fixes before reporting an issue!"
 			echo >&2 ""
 			echo >&2 "Shutting down failed deployment..."
 			$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
