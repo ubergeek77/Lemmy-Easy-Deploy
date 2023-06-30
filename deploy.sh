@@ -134,6 +134,7 @@ diag_info() {
 	if [[ ! -d "./live" ]]; then
 		echo "*** No files generated ***"
 	else
+		echo "Deploy Version: $(cat ./live/version)"
 		ls -lhn ./live/
 	fi
 	echo ""
