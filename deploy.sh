@@ -13,7 +13,7 @@ load_env() {
 	source ./config.env
 
 	# Check if we have an old environment variable from the previous version of Lemmy-Easy-Deploy
-	known_old=("BUILD_FROM_SOURCE" "TLS_ENABLED" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM")
+	known_old=("BUILD_FROM_SOURCE" "TLS_ENABLED" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM" "USE_EMAIL")
 	declare -a old_vars
 	for var in "${known_old[@]}"; do
 		if [[ -n "${!var}" ]]; then
@@ -22,7 +22,7 @@ load_env() {
 	done
 
 	# Check if we DON'T have a new environment variable from this version of Lemmy-Easy-Deploy
-	known_new=("LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX")
+	known_new=("LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX" "ENABLE_EMAIL")
 	declare -a new_vars
 	for var in "${known_new[@]}"; do
 		if [[ -z "${!var}" ]]; then
@@ -81,7 +81,7 @@ load_env() {
 	CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-80}"
 	CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-443}"
 	LEMMY_TLS_ENABLED="${LEMMY_TLS_ENABLED:-true}"
-	USE_EMAIL="${USE_EMAIL:-false}"
+	ENABLE_EMAIL="${ENABLE_EMAIL:-false}"
 	SMTP_SERVER="${SMTP_SERVER:-postfix}"
 	SMTP_PORT="${SMTP_PORT:-25}"
 	SMTP_NOREPLY_DISPLAY="${SMTP_NOREPLY_DISPLAY:-Lemmy NoReply}"
@@ -123,7 +123,7 @@ diag_info() {
 		echo "     CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
 		echo "    CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
 		echo "   LEMMY_TLS_ENABLED: ${LEMMY_TLS_ENABLED}"
-		echo "           USE_EMAIL: ${USE_EMAIL}"
+		echo "           ENABLE_EMAIL: ${ENABLE_EMAIL}"
 		echo "           SMTP_PORT: ${SMTP_PORT}"
 		echo "      ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
 		echo "  POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
@@ -915,9 +915,9 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	./templates/docker-compose.yml.template >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
-# Also override USE_EMAIL to true
+# Also override ENABLE_EMAIL to true
 if [[ "${ENABLE_POSTFIX}" == "1" ]] || [[ "${ENABLE_POSTFIX}" == "true" ]]; then
-	USE_EMAIL="true"
+	ENABLE_EMAIL="true"
 	sed -i -e '/{{EMAIL_SERVICE}}/r ./templates/compose-email.snip' ./live/docker-compose.yml
 	sed -i -e '/{{EMAIL_VOLUMES}}/r ./templates/compose-email-volumes.snip' ./live/docker-compose.yml
 fi
@@ -936,8 +936,8 @@ sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	-e "s|{{SETUP_SITE_NAME}}|${SETUP_SITE_NAME:?}|g" \
 	-e "s|{{LEMMY_TLS_ENABLED}}|${LEMMY_TLS_ENABLED:?}|g" ./templates/lemmy.hjson.template >./live/lemmy.hjson
 
-# If USE_EMAIL is true, add the email block to the lemmy config
-if [[ "${USE_EMAIL}" == "1" ]] || [[ "${USE_EMAIL}" == "true" ]]; then
+# If ENABLE_EMAIL is true, add the email block to the lemmy config
+if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 	sed -i -e '/{{EMAIL_BLOCK}}/r ./templates/lemmy-email.snip' ./live/lemmy.hjson
 
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
