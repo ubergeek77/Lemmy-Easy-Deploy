@@ -48,7 +48,6 @@ services:
     image: asonix/pictrs:0.4.0-beta.19
     user: 991:991
     environment:
-      - PICTRS__API_KEY=API_KEY
       - PICTRS__MEDIA__VIDEO_CODEC=vp9
       - PICTRS__MEDIA__GIF__MAX_WIDTH=256
       - PICTRS__MEDIA__GIF__MAX_HEIGHT=256
