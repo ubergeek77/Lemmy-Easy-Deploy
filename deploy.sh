@@ -120,14 +120,14 @@ diag_info() {
 	if [[ ! -f "./config.env" ]]; then
 		echo "*** config.env not found ***"
 	else
-		echo "   CADDY_DISABLE_TLS: ${CADDY_DISABLE_TLS}"
-		echo "     CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
-		echo "    CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
-		echo "   LEMMY_TLS_ENABLED: ${LEMMY_TLS_ENABLED}"
-		echo "           ENABLE_EMAIL: ${ENABLE_EMAIL}"
-		echo "           SMTP_PORT: ${SMTP_PORT}"
-		echo "      ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
-		echo "  POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
+		echo " CADDY_DISABLE_TLS: ${CADDY_DISABLE_TLS}"
+		echo "   CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
+		echo "  CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
+		echo " LEMMY_TLS_ENABLED: ${LEMMY_TLS_ENABLED}"
+		echo "      ENABLE_EMAIL: ${ENABLE_EMAIL}"
+		echo "         SMTP_PORT: ${SMTP_PORT}"
+		echo "    ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
+		echo "POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
 	fi
 	echo ""
 	echo "==== Generated Files ===="
