@@ -246,6 +246,7 @@ display_help() {
 	echo "Run with no options to check for Lemmy updates and deploy them"
 	echo ""
 	echo "Options:"
+	echo "  -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)"
 	echo "  -l|--lemmy-tag <tag>   Install a specific version of the Lemmy Backend"
 	echo "  -w|--webui-tag <tag>   Install a specific version of the Lemmy WebUI (will use value from --lemmy-tag if missing)"
 	echo "  -f|--force-deploy      Skip the update checker and force (re)deploy the latest/specified version"
@@ -445,6 +446,12 @@ check_image_arch() {
 	fi
 }
 
+# Shut down a deployment
+shutdown_deployment() {
+	cd ./live
+	$COMPOSE_CMD -p "lemmy-easy-deploy" down
+}
+
 # Exit on error
 set -e
 
@@ -466,6 +473,10 @@ fi
 # parse arguments
 while (("$#")); do
 	case "$1" in
+	-s | --shutdown)
+		RUN_SHUTDOWN=1
+		shift 1
+		;;
 	-l | --lemmy-tag)
 		if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
 			BACKEND_TAG_OVERRIDE="$2"
@@ -541,6 +552,12 @@ done
 # Do what the user wanted after parsing arguments, so order doesn't matter
 if [[ "${DISPLAY_HELP}" == "1" ]]; then
 	display_help
+	exit 0
+fi
+
+if [[ "${RUN_SHUTDOWN}" == "1" ]]; then
+	detect_runtime
+	shutdown_deployment
 	exit 0
 fi
 
