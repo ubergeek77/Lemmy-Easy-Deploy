@@ -516,12 +516,15 @@ while (("$#")); do
 		;;
 	-u | --update)
 		RUN_SELF_UPDATE=1
+		shift 1
 		;;
 	-d | --diag)
 		RUN_DIAG=1
+		shift 1
 		;;
 	-h | --help)
 		DISPLAY_HELP=1
+		shift 1
 		;;
 	*)
 		echo >&2 "Unrecognized arguments: $@"
