@@ -356,7 +356,7 @@ if [[ $LEMMY_VERSION == *"0.18"* ]]; then
 	echo "Upgrading to 0.18.x is not currently supported. A Lemmy-Easy-Deploy update with 0.18.x support will be"
 	echo "released very soon. Please monitor this issue for progress:"
 	echo "   https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/17"
-	echo "
+	echo ""
 	echo "In the meantime, you can try deploying 0.17.4 instead:"
 	echo ""
 	echo "./deploy.sh -u 0.17.4"
