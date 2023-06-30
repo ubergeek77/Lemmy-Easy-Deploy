@@ -267,10 +267,19 @@ self_update() {
 	# Check for LED updates
 	LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
 
+	# Make sure both strings are trackable
+	if ! is_version_string "${LED_CURRENT_VERSION}" || is_version_string "${LED_UPDATE_CHECK}"; then
+		echo "ERROR: Could not determine upgrade path for ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
+		exit 1
+	fi
+
 	# Check if this version is newer
 	if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" != "1" ]]; then
 		echo "No update available."
 		exit 0
+	else
+		echo "Update found!"
+		echo "${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
 	fi
 
 	if [[ ! -d "./.git" ]]; then
