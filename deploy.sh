@@ -809,6 +809,7 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		exit 0
 	fi
 else
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d
 	echo "No updates available."
 	exit 0
 fi
