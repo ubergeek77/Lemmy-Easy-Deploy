@@ -442,7 +442,7 @@ check_image_arch() {
 	MANIFEST=$($INSPECT_CMD inspect "$1" 2>&1)
 
 	# Handle non existent images
-	if echo "$MANIFEST" | grep -iEq 'manifest unknown|no such manifest|not found|ERROR'; then
+	if echo "$MANIFEST" | grep -iEq 'failed|unauthorized|manifest unknown|no such manifest|not found|error'; then
 		return 1
 	fi
 
