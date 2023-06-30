@@ -528,6 +528,8 @@ while (("$#")); do
 		;;
 	*)
 		echo >&2 "Unrecognized arguments: $@"
+		echo
+		display_help
 		exit 1
 		;;
 	esac
