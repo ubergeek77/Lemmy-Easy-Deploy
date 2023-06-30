@@ -78,6 +78,7 @@ load_env() {
 
 diag_info() {
 	set +e
+	load_env
 	echo ""
 	echo "==== Docker Information ===="
 	detect_runtime
@@ -103,7 +104,6 @@ diag_info() {
 	if [[ ! -f "./config.env" ]]; then
 		echo "*** config.env not found ***"
 	else
-		load_env
 		echo "   CADDY_DISABLE_TLS: ${CADDY_DISABLE_TLS}"
 		echo "     CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
 		echo "    CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
