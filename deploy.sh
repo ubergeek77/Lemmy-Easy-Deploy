@@ -22,7 +22,7 @@ load_env() {
 	done
 
 	# Check if we DON'T have a new environment variable from this version of Lemmy-Easy-Deploy
-	known_new=("SMTP_PASSWORD" "SMTP_LOGIN" "SMTP_TLS_TYPE" "LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX" "ENABLE_EMAIL")
+	known_new=("SMTP_TLS_TYPE" "LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX" "ENABLE_EMAIL")
 	declare -a new_vars
 	for var in "${known_new[@]}"; do
 		if [[ -z "${!var}" ]]; then
