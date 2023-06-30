@@ -58,6 +58,7 @@ load_env() {
 		echo "-------------------------------------------------------------------------------------------"
 		echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
 		echo "|"
+		echo "| You are missing variables that were introduced in an update to Lemmy-Easy-Deploy"
 		# Loop over the array elements and print them line by line
 		for var in "${new_vars[@]}"; do
 			echo "| * $var"
@@ -524,6 +525,10 @@ while (("$#")); do
 	-h | --help)
 		display_help
 		exit 0
+		;;
+	*)
+		echo >&2 "Unrecognized arguments: $@"
+		exit 1
 		;;
 	esac
 done
