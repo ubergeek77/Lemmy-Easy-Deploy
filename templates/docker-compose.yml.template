@@ -21,9 +21,6 @@ services:
     depends_on:
       - pictrs
       - lemmy-ui
-    networks:
-      - lemmyinternal
-      - lemmyexternalproxy
     restart: always
     logging: *default-logging
 
@@ -34,9 +31,6 @@ services:
     depends_on:
       - postgres
       - pictrs
-    networks:
-      - lemmyinternal
-      - lemmybridge
     restart: always
     logging: *default-logging
 
@@ -47,8 +41,6 @@ services:
       - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
     depends_on:
       - lemmy
-    networks:
-      - lemmyinternal
     restart: always
     logging: *default-logging
 
@@ -56,6 +48,7 @@ services:
     image: asonix/pictrs:0.4.0-beta.19
     user: 991:991
     environment:
+      - PICTRS__API_KEY=API_KEY
       - PICTRS__MEDIA__VIDEO_CODEC=vp9
       - PICTRS__MEDIA__GIF__MAX_WIDTH=256
       - PICTRS__MEDIA__GIF__MAX_HEIGHT=256
@@ -65,9 +58,6 @@ services:
       - ./pictrs.env
     volumes:
       - pictrs_data:/mnt
-    networks:
-      - lemmyinternal
-      - lemmybridge
     restart: always
     logging: *default-logging
 
@@ -80,8 +70,6 @@ services:
       - ./postgres.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - lemmyinternal
     restart: always
     logging: *default-logging
 
@@ -93,10 +81,3 @@ volumes:
   pictrs_data:
   postgres_data:
 {{EMAIL_VOLUMES}}
-
-networks:
-  lemmyexternalproxy:
-  lemmybridge:
-  lemmyinternal:
-    driver: bridge
-    internal: true

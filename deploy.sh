@@ -1,6 +1,8 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.1.4"
+LED_CURRENT_VERSION="1.2.0"
+
+# Trap exits
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -12,17 +14,19 @@ load_env() {
 
 	# Make sure nothing is missing
 	LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
-	BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 	SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
+	SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
+	CADDY_DISABLE_TLS="${CADDY_DISABLE_TLS:-false}"
 	CADDY_HTTP_PORT="${CADDY_HTTP_PORT:-80}"
 	CADDY_HTTPS_PORT="${CADDY_HTTPS_PORT:-443}"
+	LEMMY_TLS_ENABLED="${LEMMY_TLS_ENABLED:-true}"
 	USE_EMAIL="${USE_EMAIL:-false}"
-	CADDY_DISABLE_TLS="${CADDY_DISABLE_TLS:-false}"
+	SMTP_SERVER="${SMTP_SERVER:-postfix}"
+	SMTP_PORT="${SMTP_PORT:-25}"
+	SMTP_NOREPLY_DISPLAY="${SMTP_NOREPLY_DISPLAY:-Lemmy NoReply}"
+	SMTP_NOREPLY_FROM="${SMTP_NOREPLY_FROM:-noreply@${LEMMY_HOSTNAME}}"
+	ENABLE_POSTFIX="${ENABLE_POSTFIX:-false}"
 	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
-	TLS_ENABLED="${TLS_ENABLED:-true}"
-	SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
-	LEMMY_NOREPLY_DISPLAY="${LEMMY_NOREPLY_DISPLAY:-Lemmy NoReply}"
-	LEMMY_NOREPLY_FROM="${LEMMY_NOREPLY_FROM:-noreply}"
 }
 
 diag_info() {
@@ -31,17 +35,16 @@ diag_info() {
 	echo "==== Docker Information ===="
 	detect_runtime
 	echo "==== System Information ===="
-	echo "MEMORY: $(free -h)"
-	echo ""
 	echo "KERNEL: $(uname -r) ($(uname -m))"
 	echo "SHELL: $SHELL"
 	if [[ ! -f "/etc/os-release" ]]; then
 		echo "*** /etc/os-release not found ***"
 	else
-		cat /etc/os-release
+		cat /etc/os-release | grep --color=never NAME
 	fi
+	echo "MEMORY: $(free -h)"
 	echo ""
-	echo "==== Lemmy Easy Deploy Information ===="
+	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
 	echo "Integrity:"
 	echo "    $(sha256sum $0)"
@@ -54,13 +57,14 @@ diag_info() {
 		echo "*** config.env not found ***"
 	else
 		load_env
-		echo "BUILD_FROM_SOURCE=$BUILD_FROM_SOURCE"
-		echo "CADDY_HTTP_PORT=$CADDY_HTTP_PORT"
-		echo "CADDY_HTTPS_PORT=$CADDY_HTTPS_PORT"
-		echo "USE_EMAIL=$USE_EMAIL"
-		echo "CADDY_DISABLE_TLS=$CADDY_DISABLE_TLS"
-		echo "POSTGRES_POOL_SIZE=$POSTGRES_POOL_SIZE"
-		echo "TLS_ENABLED=$TLS_ENABLED"
+		echo "   CADDY_DISABLE_TLS: ${CADDY_DISABLE_TLS}"
+		echo "     CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
+		echo "    CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
+		echo "   LEMMY_TLS_ENABLED: ${LEMMY_TLS_ENABLED}"
+		echo "           USE_EMAIL: ${USE_EMAIL}"
+		echo "           SMTP_PORT: ${SMTP_PORT}"
+		echo "      ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
+		echo "  POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
 	fi
 	echo ""
 	echo "==== Generated Files ===="
@@ -162,7 +166,7 @@ detect_runtime() {
 	echo "Detected compose: $COMPOSE_CMD ($($COMPOSE_CMD version))"
 
 	RUNTIME_STATE="ERROR"
-	if docker run --rm -it -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
+	if docker run --rm -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
 		RUNTIME_STATE="OK"
 	fi
 	echo "   Runtime state: $RUNTIME_STATE"
@@ -171,85 +175,317 @@ detect_runtime() {
 
 display_help() {
 	echo "Usage:"
-	echo "  $0 [-u|--update-version <version>] [-f|--force-deploy] [-d|--diag] [-h|--help]"
+	echo "  $0 [options]"
+	echo ""
+	echo "Run with no options to check for Lemmy updates and deploy them"
 	echo ""
 	echo "Options:"
-	echo "  -u|--update-version <version>   Override the update checker and update to <version> instead."
-	echo "  -f|--force-deploy               Skip the update checker and force (re)deploy the latest/specified version."
-	echo "  -d|--diag                       Dump diagnostic information for issue reporting, then exit"
-	echo "  -h|--help                       Show this help message."
+	echo "  -l|--lemmy-tag <tag>   Install a specific version of the Lemmy Backend"
+	echo "  -w|--webui-tag <tag>   Install a specific version of the Lemmy WebUI (will use value from --lemmy-tag if missing)"
+	echo "  -f|--force-deploy      Skip the update checker and force (re)deploy the latest/specified version"
+	echo "  -r|--rebuild           Deploy from source, don't update the Git repos, and deploy them as-is, implies -f and ignores -l/-w"
+	echo "  -y|--yes               Answer Yes to any prompts asking for confirmation"
+	echo "  -v|--version           Prints the current version of Lemmy-Easy-Deploy"
+	echo "  -u|--update            Update Lemmy-Easy-Deploy"
+	echo "  -d|--diag              Dump diagnostic information for issue reporting, then exit"
+	echo "  -h|--help              Show this help message"
 	exit 1
 }
 
+print_version() {
+	echo ${LED_CURRENT_VERSION:?}
+}
+
+self_update() {
+	if [[ ! -d "./.git" ]]; then
+		echo >&2 "ERROR: The local .git folder for Lemmy-Easy-Deploy was not found."
+		echo >&2 "Self-updates are only available if you cloned this repo with git clone:"
+		echo >&2 "   git clone https://github.com/ubergeek77/Lemmy-Easy-Deploy"
+		exit 1
+	fi
+
+	echo "--> Updating Lemmy-Easy-Deploy..."
+	if ! git pull; then
+		echo >&2 "ERROR: Update failed. Have you modified Lemmy-Easy-Deploy?"
+		echo >&2 "You can try to reset Lemmy-Easy-Deploy manually, but you will lose any changes you made!"
+		echo >&2 "Back up any foreign files you may have in this directory, then run these commands:"
+		echo >&2 "    git reset --hard"
+		echo >&2 "    $0 --update"
+		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	fi
+	LED_TAG="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
+	if ! git checkout ${LED_TAG}; then
+		echo >&2 "ERROR: Update failed. Have you modified Lemmy-Easy-Deploy?"
+		echo >&2 "You can try to reset Lemmy-Easy-Deploy manually, but you will lose any changes you made!"
+		echo >&2 "Back up any foreign files you may have in this directory, then run these commands:"
+		echo >&2 "    git reset --hard"
+		echo >&2 "    $0 --update"
+		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
+		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+		exit 1
+	fi
+
+}
+
+# Validate if an input is in 0.0.0 format
+is_version_string() {
+	[[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
+compare_versions() {
+	IFS='.' read -ra fields <<<"$1"
+	_major=${fields[0]}
+	_minor=${fields[1]}
+	_micro=${fields[2]}
+	LEFT_VERSION_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
+
+	IFS='.' read -ra fields <<<"$2"
+	_major=${fields[0]}
+	_minor=${fields[1]}
+	_micro=${fields[2]}
+	RIGHT_VERSION_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
+
+	if ((LEFT_VERSION_NUMERIC < RIGHT_VERSION_NUMERIC)); then
+		echo "1"
+	else
+		echo "0"
+	fi
+}
+
+latest_github_tag() {
+	ratelimit_error='"message":"API rate limit exceeded for'
+	RESPONSE="$(curl -s https://api.github.com/repos/$1/releases/latest)"
+	if [[ "${RESPONSE,,}" == *"${ratelimit_error,,}"* ]]; then
+		echo >&2 ""
+		echo >&2 "---------------------------------------------------------------------"
+		echo >&2 "ERROR: GitHub API Rate Limit exceeded. Cannot check latest tag for $1"
+		echo >&2 ""
+		echo >&2 "Please do not report this as an issue. If you are on a cloud server,"
+		echo >&2 "a VM neighbor likely exhausted the rate limit. Please try again later."
+		echo >&2 "---------------------------------------------------------------------"
+		echo >&2 ""
+		exit 1
+	fi
+	RESULT=$(echo "${RESPONSE}" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+	# If no result, check the latest tag that doesn't contain the words beta or rc
+	if [[ -z "${RESULT}" ]]; then
+		RESPONSE="$(curl -s https://api.github.com/repos/$1/git/refs/tags)"
+		while IFS= read -r line; do
+			if [[ "${line,,}" != *beta* && "${line,,}" != *rc* ]]; then
+				RESULT="$(echo ${line} | cut -d'/' -f3 | tr -d '",')"
+				break
+			fi
+		done <<<$(echo "${RESPONSE}" | grep '"ref":' | tac)
+	fi
+
+	# If still no result, then it probably doesn't exist
+	if [[ -z "${RESULT}" ]]; then
+		echo >&2 ""
+		echo >&2 "---------------------------------------------------------------------"
+		echo >&2 "ERROR: No tags found for $1"
+		echo >&2 ""
+		echo >&2 "Did the repo move?"
+		echo >&2 "---------------------------------------------------------------------"
+		echo >&2 ""
+		exit 1
+	fi
+	echo "${RESULT}"
+}
+
+ask_user() {
+	local prompt="${1} [Y/n] "
+
+	# Always answer yes if the user specified -y
+	if [[ "${ANSWER_YES}" == "1" ]]; then
+		echo "$prompt Y"
+		return 0
+	fi
+
+	while true; do
+		read -rp "$prompt" answer
+
+		case "${answer,,}" in
+		y | yes | "")
+			return 0
+			break
+			;;
+		n | no)
+			return 1
+			break
+			;;
+		*)
+			echo ""
+			echo "Invalid input. Please enter Y for yes or N for no."
+			;;
+		esac
+	done
+}
+
+check_image_arch() {
+	# Detect the current docker architecture
+	if [[ -z "${DOCKER_ARCH}" ]]; then
+		export DOCKER_ARCH="$(docker version --format '{{.Server.Arch}}')"
+		export SEARCH_ARCH="${DOCKER_ARCH}"
+	fi
+
+	# Determine if imagetools is available
+	if [[ -z "${IMAGETOOLS_AVAILABLE}" ]]; then
+		if docker buildx imagetools >/dev/null 2>&1; then
+			export IMAGETOOLS_AVAILABLE=1
+		else
+			export IMAGETOOLS_AVAILABLE=0
+		fi
+	fi
+
+	# Determine how to inspect the manifest
+	if [[ "${IMAGETOOLS_AVAILABLE}" == "1" ]]; then
+		# If the arch is just arm, search for arm/v7
+		if [[ "${DOCKER_ARCH}" == "arm" ]]; then
+			SEARCH_ARCH="arm/v7"
+		fi
+		INSPECT_CMD="docker buildx imagetools"
+		INSPECT_MATCH="Platform:    linux/${SEARCH_ARCH}$"
+	else
+		INSPECT_CMD="docker manifest"
+		INSPECT_MATCH="\"architecture\": \"${DOCKER_ARCH}\",$"
+	fi
+
+	# Get the manifest info
+	MANIFEST=$($INSPECT_CMD inspect "$1" 2>&1)
+
+	# Handle non existent images
+	if echo "$MANIFEST" | grep -iEq 'manifest unknown|no such manifest|not found|ERROR'; then
+		return 1
+	fi
+
+	# Handle single-arch images
+	if echo "$MANIFEST" | grep -Evq 'Platform|"architecture"'; then
+		echo "! No reported architecture for $1; assuming linux/amd64"
+		if [[ "${DOCKER_ARCH}" == "amd64" ]]; then
+			return 0
+		else
+			return 1
+		fi
+	fi
+
+	# Search for this system's architecture
+	if echo "$MANIFEST" | grep -q "${INSPECT_MATCH}"; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+# Exit on error
+set -e
+
 # Check for LED updates
-LED_UPDATE_CHECK="$(curl -s https://api.github.com/repos/ubergeek77/Lemmy-Easy-Deploy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
+LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
 
 # Check if this version is newer
-IFS='.' read -ra fields <<<"$LED_CURRENT_VERSION"
-_major=${fields[0]}
-_minor=${fields[1]}
-_micro=${fields[2]}
-LED_CURRENT_VERSION_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
-
-IFS='.' read -ra fields <<<"$LED_UPDATE_CHECK"
-_major=${fields[0]}
-_minor=${fields[1]}
-_micro=${fields[2]}
-LED_UPDATE_CHECK_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
-
-if ((LED_CURRENT_VERSION_NUMERIC < LED_UPDATE_CHECK_NUMERIC)); then
+if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" == "1" ]]; then
 	echo
 	echo "================================================================"
 	echo "|   A new Lemmy-Easy-Deploy update is available!"
 	echo "|       ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
-	if [[ -d "./.git" ]]; then
-		echo "|"
-		echo "|   Please consider running 'git pull' to download the update!"
-		echo "|   Alternatively:"
-	fi
 	echo "|"
-	echo "|   You can visit the repo to download the update:"
-	echo "|      https://github.com/ubergeek77/Lemmy-Easy-Deploy"
+	echo "|   Run $0 --update to install the update"
 	echo "================================================================"
+	echo
 fi
 
 # parse arguments
 while (("$#")); do
 	case "$1" in
-	-u | --update-version)
+	-l | --lemmy-tag)
 		if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-			UPDATE_VERSION_OVERRIDE="$2"
+			BACKEND_TAG_OVERRIDE="$2"
+			# Let the user specify a git tag to build from source manually
+			if [[ "${BACKEND_TAG_OVERRIDE,,}" == git:* ]]; then
+				BACKEND_TAG_OVERRIDE="${BACKEND_TAG_OVERRIDE#"git:"}"
+				BUILD_BACKEND=1
+			fi
 			shift 2
 		else
-			echo "ERROR: Argument for $1 is missing" >&2
+			echo >&2 "ERROR: Argument for $1 is missing"
+			exit 1
+		fi
+		;;
+	-w | --webui-tag)
+		if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+			FRONTEND_TAG_OVERRIDE="$2"
+			# Let the user specify a git tag to build from source manually
+			if [[ "${FRONTEND_TAG_OVERRIDE,,}" == git:* ]]; then
+				FRONTEND_TAG_OVERRIDE="${FRONTEND_TAG_OVERRIDE#"git:"}"
+				BUILD_FRONTEND=1
+			fi
+			shift 2
+		else
+			echo >&2 "ERROR: Argument for $1 is missing"
 			exit 1
 		fi
 		;;
 	-f | --force-deploy)
 		FORCE_DEPLOY=1
+		echo
 		echo "WARN: Force deploying; this will regenerate configs and deploy again even if there were no updates"
 		echo "Passwords will NOT be re-generated"
-		shift
+		echo
+		shift 1
 		;;
-	-h | --help)
-		display_help
+	-r | --rebuild)
+		REBUILD_SOURCE=1
+		FORCE_DEPLOY=1
+		BUILD_BACKEND=1
+		BUILD_FRONTEND=1
+		shift 1
+		;;
+	-y | --yes)
+		ANSWER_YES=1
+		shift 1
+		;;
+	-v | --version)
+		print_version
+		exit 0
+		;;
+	-u | --update)
+		self_update
+		exit 0
 		;;
 	-d | --diag)
 		diag_info
 		exit 0
 		;;
-	-* | --*)
-		echo "ERROR: Unsupported flag $1" >&2
+	-h | --help)
 		display_help
-		exit 1
-		;;
-	*)
-		echo "ERROR: Invalid argument $1" >&2
-		display_help
-		exit 1
+		exit 0
 		;;
 	esac
 done
+
+# Warn user if they are using --rebuild incorrectly
+if [[ "${REBUILD_SOURCE}" == "1" ]] && [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
+	echo
+	echo "WARN: --rebuild specified, but a --lemmy-tag override has been provided (${BACKEND_TAG_OVERRIDE})"
+	echo "If the sources do not already exist, this version will be checked out, but it will be ignored otherwise"
+	echo
+fi
+
+if [[ "${REBUILD_SOURCE}" == "1" ]] && [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
+	echo
+	echo "WARN: --rebuild specified, but a --webui-tag override has been provided (${FRONTEND_TAG_OVERRIDE})"
+	echo "If the sources do not already exist, this version will be checked out, but it will be ignored otherwise"
+	echo
+fi
+
+# If a frontend override wasn't specified, but a backend one was, match the versions
+if [[ -z "${FRONTEND_TAG_OVERRIDE}" ]] && [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
+	FRONTEND_TAG_OVERRIDE="${BACKEND_TAG_OVERRIDE}"
+	BUILD_FRONTEND="${BUILD_BACKEND}"
+fi
 
 echo "========================================"
 echo "Lemmy-Easy-Deploy by ubergeek77 (v${LED_CURRENT_VERSION})"
@@ -262,17 +498,14 @@ if [[ "${RUNTIME_STATE}" != "OK" ]]; then
 	echo >&2 "ERROR: Docker runtime not healthy."
 	echo >&2 "Something is wrong with your Docker installation."
 	echo >&2 "Please ensure you can run the following command on your own without errors:"
-	echo >&2 "    docker run --rm -it -v "\$\(pwd\):/host:ro" hello-world"
+	echo >&2 "    docker run --rm -v "\$\(pwd\):/host:ro" hello-world"
 	echo >&2 ""
 	echo >&2 "If you see any errors while running that command, please Google the error messages"
 	echo >&2 "to see if any of the solutions work for you. Once Docker is functional on your system,"
-	echo >&2 "you can try running Lemmy Easy Deploy again."
+	echo >&2 "you can try running Lemmy-Easy-Deploy again."
 	echo >&2 ""
 	exit 1
 fi
-
-# Exit on error
-set -e
 
 # Yell at the user if they didn't follow instructions
 if [[ ! -f "./config.env" ]]; then
@@ -295,196 +528,283 @@ if [[ $LEMMY_HOSTNAME =~ ^https?: ]]; then
 	exit 1
 fi
 
-# Read the user's current version of Lemmy
+# Read the user's current versions of Lemmy
 if [[ -f "./live/version" ]]; then
-	CURRENT_VERSION="$(cat ./live/version)"
+	VERSION_STRING="$(cat ./live/version)"
+
+	IFS=';' read -ra parts <<<"$VERSION_STRING"
+	CURRENT_BACKEND="${parts[0]}"
+	CURRENT_FRONTEND="${parts[1]}"
+
+	# Lemmy-Easy-Deploy backwards compatibility
+	if [[ -z "${CURRENT_FRONTEND}" ]]; then
+		CURRENT_FRONTEND="${CURRENT_BACKEND}"
+	fi
 else
-	CURRENT_VERSION="0.0.0"
+	CURRENT_BACKEND="0.0.0"
+	CURRENT_FRONTEND="0.0.0"
 fi
-echo " Current Lemmy version: ${CURRENT_VERSION:?}"
 
-# If the user specified a version to update to, use that version
-# Otherwise, detect the latest version from GitHub
-if [[ -n "$UPDATE_VERSION_OVERRIDE" ]]; then
-	LEMMY_VERSION="$UPDATE_VERSION_OVERRIDE"
-	echo "Manual upgrade version: ${LEMMY_VERSION:?}"
+# Determine Backend update version
+# Allow the user to override the version to update to
+
+LATEST_BACKEND="${BACKEND_TAG_OVERRIDE}"
+if [[ -z "${LATEST_BACKEND}" ]]; then
+	LATEST_BACKEND="$(latest_github_tag LemmyNet/lemmy)"
+fi
+echo " Current Backend Version: ${CURRENT_BACKEND:?}"
+if [[ "${REBUILD_SOURCE}" == "1" ]]; then
+	echo "  Target Backend Version: Local Git Repo"
+elif [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
+	echo "  Target Backend Version: ${LATEST_BACKEND} (Manual)"
+elif [[ "${BUILD_BACKEND}" == "1" ]]; then
+	echo "  Target Backend Version: (git:${LATEST_BACKEND})"
 else
-	LEMMY_VERSION="$(curl -s https://api.github.com/repos/LemmyNet/lemmy/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')"
-	echo "  Latest Lemmy version: ${LEMMY_VERSION:?}"
-	echo
+	echo "  Latest Backend Version: ${LATEST_BACKEND}"
+fi
+echo
 
-	# Pre-check the version strings
-	if [[ ! $CURRENT_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ ! $LEMMY_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo >&2 "ERROR: Unable to determine Lemmy upgrade path. One of the below versions is not in 0.0.0 format:"
-		echo >&2 "Installed version: $CURRENT_VERSION"
-		echo >&2 "   Target version: $LEMMY_VERSION"
-		echo >&2 ""
-		echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
-		echo >&2 "./$0 -u <some-version> -f"
-		echo >&2 ""
-		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
-		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
+# Determine backend upgrade path
+if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_BACKEND}" != "1" && "${REBUILD_SOURCE}" != "1" ]]; then
+
+	backend_versions=("${CURRENT_BACKEND}" "${LATEST_BACKEND}")
+	for v in "${backend_versions[@]}"; do
+		if ! is_version_string $v; then
+			echo >&2 ""
+			echo "-----------------------------------------------------------------------------------------------------------"
+			echo >&2 "ERROR: Unable to determine Backend upgrade path. One of the below versions is not in 0.0.0 format:"
+			echo >&2 "   Installed Backend: ${CURRENT_BACKEND}"
+			echo >&2 "      Target Backend: ${LATEST_BACKEND}"
+			echo >&2 ""
+			echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
+			echo >&2 "$0 -l <some-tag> -f"
+			echo >&2 ""
+			echo >&2 "This will get your deployment back on an \"update track\" and allow for auto updates again."
+			echo >&2 ""
+			echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
+			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+			echo "-----------------------------------------------------------------------------------------------------------"
+			exit 1
+		fi
+	done
+	# Check if an update is available
+	BACKEND_OUTDATED="$(compare_versions ${CURRENT_BACKEND} ${LATEST_BACKEND})"
+else
+	BACKEND_OUTDATED=1
+fi
+
+# Determine Frontend update version
+# Allow the user to override the version to update to
+LATEST_FRONTEND="${FRONTEND_TAG_OVERRIDE}"
+if [[ "${LATEST_FRONTEND}" == "" ]]; then
+	LATEST_FRONTEND="$(latest_github_tag LemmyNet/lemmy-ui)"
+fi
+echo " Current Frontend Version: ${CURRENT_FRONTEND:?}"
+if [[ "${REBUILD_SOURCE}" == "1" ]]; then
+	echo "  Target Frontend Version: Local Git Repo"
+elif [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
+	echo "  Target Frontend Version: ${LATEST_FRONTEND} (Manual)"
+elif [[ "${BUILD_BACKEND}" == "1" ]]; then
+	echo "  Target Frontend Version: (git:${LATEST_FRONTEND})"
+else
+	echo "  Latest Frontend Version: ${LATEST_FRONTEND}"
+fi
+echo
+
+# Determine Frontend upgrade path
+if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_FRONTEND}" != "1" && "${REBUILD_SOURCE}" != "1" ]]; then
+	frontend_versions=("${CURRENT_FRONTEND}" "${LATEST_FRONTEND}")
+	for v in "${frontend_versions[@]}"; do
+		if ! is_version_string $v; then
+			echo >&2 "ERROR: Unable to determine Frontend upgrade path. One of the below versions is not in 0.0.0 format:"
+			echo "-----------------------------------------------------------------------------------------------------------"
+			echo >&2 "   Installed Frontend: ${CURRENT_FRONTEND}"
+			echo >&2 "      Target Frontend: ${LATEST_FRONTEND}"
+			echo >&2 ""
+			echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
+			echo >&2 "$0 -w <some-tag> -f"
+			echo >&2 ""
+			echo >&2 "This will get your deployment back on an \"update track\" and allow for auto updates again."
+			echo >&2 ""
+			echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
+			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
+			echo "-----------------------------------------------------------------------------------------------------------"
+			exit 1
+		fi
+	done
+	# Check if an update is available
+	FRONTEND_OUTDATED="$(compare_versions ${CURRENT_FRONTEND} ${LATEST_FRONTEND})"
+else
+	FRONTEND_OUTDATED=1
+fi
+
+if [[ "${FORCE_DEPLOY}" != "1" ]]; then
+	if [[ "${BACKEND_OUTDATED}" == "1" ]]; then
+		echo "A Backend update is available!"
+		echo "   BE: ${CURRENT_BACKEND} --> ${LATEST_BACKEND}"
+		echo
 	fi
 
-	# Check if this version is newer
-	IFS='.' read -ra fields <<<"$CURRENT_VERSION"
-	_major=${fields[0]}
-	_minor=${fields[1]}
-	_micro=${fields[2]}
-	CURRENT_VERSION_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
-
-	IFS='.' read -ra fields <<<"$LEMMY_VERSION"
-	_major=${fields[0]}
-	_minor=${fields[1]}
-	_micro=${fields[2]}
-	LEMMY_VERSION_NUMERIC=$((_major * 10000 + _minor * 1000 + _micro))
-
-	if [[ "${FORCE_DEPLOY}" == "1" ]] || ((CURRENT_VERSION_NUMERIC < LEMMY_VERSION_NUMERIC)); then
-		echo "Update available!"
+	if [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
+		echo "A Frontend update is available!"
+		echo "   FE: ${CURRENT_FRONTEND} --> ${LATEST_FRONTEND}"
 		echo
-		echo "$CURRENT_VERSION --> $LEMMY_VERSION"
+	fi
+fi
+
+# Ask the user if they want to update
+if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
+	# Print scary warning if this is a backend update and data exists
+	if docker volume inspect lemmy-easy-deploy_postgres_data >/dev/null 2>&1 && [[ "${BACKEND_OUTDATED}" == "1" ]]; then
+		echo "--------------------------------------------------------------------|"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|                                                                   |"
+		echo "| Updates to the Lemmy Backend perform a database migration!        |"
+		echo "|                                                                   |"
+		echo "| This means that, if you update, but run into a bug/issue in the   |"
+		echo "| new version, you will NOT be able to roll back to the previous    |"
+		echo "| version of the Lemmy Backend!                                     |"
+		echo "|                                                                   |"
+		echo "|              LEMMY BACKEND UPDATES ARE ONE-WAY ONLY               |"
+		echo "|                                                                   |"
+		echo "| THIS IS YOUR ONLY OPPORTUNITY TO MAKE A BACKUP OF YOUR LEMMY DATA |"
+		echo "|                                                                   |"
+		echo "| You are encouraged to read the Lemmy issue tracker before         |"
+		echo "| updating, to ensure aLemmy update does not corrupt your database. |"
+		echo "|                                                                   |"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|-------------------------------------------------------------------|"
 		echo
-	else
-		echo "No updates available."
+	fi
+	if ! ask_user "Would you like to deploy this update?"; then
 		exit 0
 	fi
+else
+	echo "No updates available."
+	exit 0
 fi
 
-if [[ $LEMMY_VERSION == *"0.18"* ]]; then
-	echo ""
-	echo "UPGRADING TO 0.18.0 IS DISABLED DUE TO MULTIPLE SERVER-BREAKING ISSUES:"
-	echo "  * https://github.com/LemmyNet/lemmy/issues/3296"
-	echo "  * https://github.com/LemmyNet/lemmy-ui/issues/1530"
-	echo ""
-	echo "These are NOT Lemmy-Easy-Deploy issues, these are core Lemmy issues!"
-	echo ""
-	echo "For the safety of your data, Lemmy-Easy-Deploy will NOT upgrade your deployment to 0.18.x"
-	echo ""
-	echo "I will keep an eye on the Lemmy project and remove this block when upgrading is safe. In the meantime,"
-	echo "you can try deploying 0.17.4 instead:"
-	echo ""
-	echo "./deploy.sh -u 0.17.4"
-	echo ""
-	echo "This script will now exit."
-	echo ""
-	exit 1
-fi
-
-# Define default strings for docker-compose.yml
-COMPOSE_CADDY_IMAGE="image: caddy:latest"
-COMPOSE_LEMMY_IMAGE="image: dessalines/lemmy:${LEMMY_VERSION:?}"
-COMPOSE_LEMMY_UI_IMAGE="image: dessalines/lemmy-ui:${LEMMY_VERSION:?}"
-
-# If the current system is not x86_64, we can't use the Docker Hub images
-CURRENT_PLATFORM="$(uname -m)"
-
-if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
-	BUILD_FROM_SOURCE="true"
-	echo
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-	echo "WARN: Builds for your platform ($CURRENT_PLATFORM) are currently broken"
-	echo "See this issue for more details: https://github.com/LemmyNet/lemmy/issues/3102"
-	echo "In the optimistic case that you are trying to deploy 0.17.4 or below, Lemmy Easy Deploy will continue"
-	echo "But otherwise, if you're trying to deploy 0.18.0, you will see some errors and the deploy will fail :("
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-	echo
-	echo "Continuing in 10 seconds..."
-	sleep 10
-fi
-
-# Download the sources if we are doing a from-source build
+# Make sure the live dir exists
 mkdir -p ./live
-if [[ "${BUILD_FROM_SOURCE}" == "true" ]] || [[ "${BUILD_FROM_SOURCE}" == "1" ]]; then
-	echo "Source building enabled. Updating local Git repos..."
 
-	# Download Lemmy source if it's not already downloaded
+# Handle Backend source
+if [[ "${BUILD_BACKEND}" == "1" ]]; then
+	echo "Building Lemmy Backend from source"
+	# Set the dockerfile path
+	BACKEND_DOCKERFILE_PATH="docker/Dockerfile"
+
+	# Set the build parameter for the compose file
+	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./${BACKEND_DOCKERFILE_PATH}"
+
+	# Download source if it's not already downloaded
+	# Initially check out whatever the latest tag is
 	if [[ ! -d "./live/lemmy" ]]; then
-		echo "Downloading Lemmy source..."
+		echo "Downloading Lemmy Backend source... (${LATEST_BACKEND:?})"
 		git clone --recurse-submodules https://github.com/LemmyNet/lemmy ./live/lemmy
+		(
+			set -e
+			cd ./live/lemmy
+			git checkout ${LATEST_BACKEND:?}
+		)
+
 	fi
 
-	# Download Lemmy-UI source if it's not already downloaded
-	if [[ ! -d "./live/lemmy-ui" ]]; then
-		echo "Downloading Lemmy-UI source..."
-		git clone --recurse-submodules https://github.com/LemmyNet/lemmy-ui ./live/lemmy-ui
-	fi
-
-	# Check out the right version of Lemmy and Lemmy UI
-	echo "Checking out Lemmy ${LEMMY_VERSION:?}..."
-	(
-		set -e
-		cd ./live/lemmy
-		git reset --hard
-		git clean -fdx
-		git checkout main
-		git pull
-		git checkout ${LEMMY_VERSION:?}
-	) || {
-		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
-		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
-		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
-	}
-
-	(
-		set -e
-		cd ./live/lemmy-ui
-		git reset --hard
-		git clean -fdx
-		git checkout main
-		git pull
-		git checkout ${LEMMY_VERSION:?}
-	) || {
-		echo >&2 "ERROR: Failed to check out lemmy ${LEMMY_VERSION}"
-		echo >&2 "If you manually specified a version, it may not exist. If you didn't, this might be a bug. Please report it:"
-		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
-	}
-
-	# TEMPORARY 0.18 COMPATIBILITY FIXES
-	# Search for docker/Dockerfile first (0.18), and if it doesn't exist.
-	# fall back to docker/prod/Dockerfile (0.17.4)
-	# If docker/Dockerfile exists, don't append .arm since they removed it
-	# I have no idea if 0.18 even builds on ARM yet. Sorry to anyone if it doesn't!
-	# I'll get a more formal fix out for any 0.18 issues once it releases and I have some time
-	# What will likely end up happening is 0.17 support is removed. Not much sense running an old version anyway
-	# Also determine if .arm should be appended to the Dockerfile path
-	# I know this is terrible but I don't want to wake up to a bunch of issues and it's late T_T
-	if [[ -f ./live/lemmy/docker/Dockerfile ]]; then
-		ARM_SUFFIX=""
-		LEMMY_DOCKERFILE_PATH="docker/Dockerfile"
+	# Skip checkout if REBUILD_SOURCE=1
+	if [[ "${REBUILD_SOURCE}" == "1" ]]; then
+		echo "WARN: --rebuild was specified; not updating Lemmy Backend source files, building as-is"
 	else
-		ARM_SUFFIX=".arm"
-		LEMMY_DOCKERFILE_PATH="docker/prod/Dockerfile"
+		echo "Checking out Lemmy Backend ${LATEST_BACKEND:?}..."
+		(
+			set -e
+			cd ./live/lemmy
+			git reset --hard
+			git clean -fdx
+			git checkout main
+			git pull
+			git checkout ${LATEST_BACKEND:?}
+		)
+	fi
+fi
+
+# Handle Frontend source
+if [[ "${BUILD_FRONTEND}" == "1" ]]; then
+	echo "Building Lemmy Backend from source (due to user-specified git: prefix)"
+	# Set the dockerfile path
+	FRONTEND_DOCKERFILE_PATH="docker/Dockerfile"
+
+	# Set the build parameter for the compose file
+	COMPOSE_LEMMY_UI_IMAGE="build:\n      context: ./lemmy-ui\n      dockerfile: ./${FRONTEND_DOCKERFILE_PATH}"
+
+	# Download source if it's not already downloaded
+	if [[ ! -d "./live/lemmy-ui" ]]; then
+		echo "Downloading Lemmy Frontend source... (${LATEST_FRONTEND:?})"
+		git clone --recurse-submodules https://github.com/LemmyNet/lemmy-ui ./live/lemmy-ui
+		(
+			set -e
+			cd ./live/lemmy
+			git checkout ${LATEST_FRONTEND:?}
+		)
 	fi
 
-	# If the current platform isn't ARM either, this platform is not supported
-	if [[ "${CURRENT_PLATFORM:?}" != "x86_64" ]]; then
-		if [[ "$CURRENT_PLATFORM" == arm* ]] || [[ "$CURRENT_PLATFORM" == "aarch64" ]]; then
-			LEMMY_DOCKERFILE_PATH="${LEMMY_DOCKERFILE_PATH:?}${ARM_SUFFIX}"
-		else
-			echo >&2 "ERROR: Unknown architecture: $CURRENT_PLATFORM"
-			echo >&2 "Unfortunately, Lemmy Easy Deploy does not support your architecture at this time :("
+	# Skip checkout if REBUILD_SOURCE=1
+	if [[ "${REBUILD_SOURCE}" == "1" ]]; then
+		echo "WARN: --rebuild was specified; not updating Lemmy Frontend source files, building as-is"
+	else
+		echo "Checking out Lemmy Frontend ${LATEST_BACKEND:?}..."
+		(
+			set -e
+			cd ./live/lemmy-ui
+			git reset --hard
+			git clean -fdx
+			git checkout main
+			git pull
+			git checkout ${LATEST_BACKEND:?}
+		)
+	fi
+fi
+
+# Determine the images to use
+# Try to use my images first, then the official ones
+LEMMY_IMAGE_TAG="ghcr.io/ubergeek77/lemmy:${LATEST_BACKEND:?}"
+if [[ -z "${COMPOSE_LEMMY_IMAGE}" ]]; then
+	echo "Finding the best available Backend image, please wait..."
+	if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
+		echo "! ${LEMMY_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
+		LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
+		echo "! Checking backup image at ${LEMMY_IMAGE_TAG}..."
+		if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
+			echo >&2 "ERROR: A Lemmy Backend image for your architecture is not available (${DOCKER_ARCH})"
+			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
 			exit 1
 		fi
 	fi
-
-	COMPOSE_LEMMY_IMAGE="build:\n      context: ./lemmy\n      dockerfile: ./${LEMMY_DOCKERFILE_PATH}"
-	COMPOSE_LEMMY_UI_IMAGE="build: ./lemmy-ui"
-
-	# Make sure that Dockerfile actually exists
-	if [[ ! -f "./live/lemmy/${LEMMY_DOCKERFILE_PATH}" ]]; then
-		echo >&2 ""
-		echo >&2 "ERROR: Unable to find Lemmy Dockerfile for building"
-		echo >&2 "    No such file: ./live/lemmy/${LEMMY_DOCKERFILE_PATH}"
-		echo >&2 ""
-		echo >&2 "It is likely that Lemmy restructured their build files in a recent update."
-		echo >&2 "If Lemmy Easy Deploy is already up to date, please report this so I can find the correct file path:"
-		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
-	fi
+	echo "--> Using Backend Image: ${LEMMY_IMAGE_TAG}"
+	COMPOSE_LEMMY_IMAGE="image: ${LEMMY_IMAGE_TAG}"
+	echo
 fi
+
+LEMMY_UI_IMAGE_TAG="ghcr.io/ubergeek77/lemmy-ui:${LATEST_FRONTEND:?}"
+if [[ -z "${COMPOSE_LEMMY_UI_IMAGE}" ]]; then
+	echo "Finding the best available Frontend image, please wait..."
+	if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
+		echo "! ${LEMMY_UI_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
+		LEMMY_UI_IMAGE_TAG="dessalines/lemmy-ui:${LATEST_FRONTEND:?}"
+		echo "! Checking backup image at ${LEMMY_UI_IMAGE_TAG}..."
+		if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
+			echo >&2 "ERROR: A Lemmy Frontend image for your architecture is not available (${DOCKER_ARCH})"
+			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
+			exit 1
+		fi
+	fi
+	echo "--> Using Frontend Image: ${LEMMY_UI_IMAGE_TAG}"
+	COMPOSE_LEMMY_UI_IMAGE="image: ${LEMMY_UI_IMAGE_TAG}"
+	echo
+fi
+
+# Caddy is reliable, I don't need to check it
+COMPOSE_CADDY_IMAGE="image: caddy:latest"
 
 # Generate all the env files, make a Caddy directory since we'll need it
 mkdir -p ./live/caddy
@@ -524,16 +844,6 @@ else
 	cat ./templates/Caddyfile.template >./live/caddy/Caddyfile
 fi
 
-# Generate lemmy.hjson
-sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
-	-e "s|{{PICTRS__API_KEY}}|${PICTRS__API_KEY:?}|g" \
-	-e "s|{{POSTGRES_PASSWORD}}|${POSTGRES_PASSWORD:?}|g" \
-	-e "s|{{POSTGRES_POOL_SIZE}}|${POSTGRES_POOL_SIZE:?}|g" \
-	-e "s|{{SETUP_ADMIN_PASS}}|${SETUP_ADMIN_PASS:?}|g" \
-	-e "s|{{SETUP_ADMIN_USER}}|${SETUP_ADMIN_USER:?}|g" \
-	-e "s|{{SETUP_SITE_NAME}}|${SETUP_SITE_NAME:?}|g" \
-	-e "s|{{TLS_ENABLED}}|${TLS_ENABLED:?}|g" ./templates/lemmy.hjson.template >./live/lemmy.hjson
-
 # Generate docker-compose.yml
 sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_IMAGE}}|${COMPOSE_LEMMY_IMAGE:?}|g" \
@@ -542,21 +852,42 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
 	./templates/docker-compose.yml.template >./live/docker-compose.yml
 
-if [[ "${USE_EMAIL}" == "true" ]] || [[ "${USE_EMAIL}" == "1" ]]; then
-	sed -i -e '/{{EMAIL_BLOCK}}/r ./templates/lemmy-email.snip' ./live/lemmy.hjson
+# If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
+# Also override USE_EMAIL to true
+if [[ "${ENABLE_POSTFIX}" == "1" ]] || [[ "${ENABLE_POSTFIX}" == "true" ]]; then
+	USE_EMAIL="true"
 	sed -i -e '/{{EMAIL_SERVICE}}/r ./templates/compose-email.snip' ./live/docker-compose.yml
 	sed -i -e '/{{EMAIL_VOLUMES}}/r ./templates/compose-email-volumes.snip' ./live/docker-compose.yml
 fi
-sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
+
+# Delete the email templates if they exist
 sed -i '/{{EMAIL_SERVICE}}/d' ./live/docker-compose.yml
 sed -i '/{{EMAIL_VOLUMES}}/d' ./live/docker-compose.yml
 
-sed -i -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
-	-e "s|{{LEMMY_NOREPLY_DISPLAY}}|${LEMMY_NOREPLY_DISPLAY:?}|g" \
-	-e "s|{{LEMMY_NOREPLY_FROM}}|${LEMMY_NOREPLY_FROM:?}|g" ./live/lemmy.hjson
+# Generate initial lemmy.hjson
+sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
+	-e "s|{{PICTRS__API_KEY}}|${PICTRS__API_KEY:?}|g" \
+	-e "s|{{POSTGRES_PASSWORD}}|${POSTGRES_PASSWORD:?}|g" \
+	-e "s|{{POSTGRES_POOL_SIZE}}|${POSTGRES_POOL_SIZE:?}|g" \
+	-e "s|{{SETUP_ADMIN_PASS}}|${SETUP_ADMIN_PASS:?}|g" \
+	-e "s|{{SETUP_ADMIN_USER}}|${SETUP_ADMIN_USER:?}|g" \
+	-e "s|{{SETUP_SITE_NAME}}|${SETUP_SITE_NAME:?}|g" \
+	-e "s|{{LEMMY_TLS_ENABLED}}|${LEMMY_TLS_ENABLED:?}|g" ./templates/lemmy.hjson.template >./live/lemmy.hjson
+
+# If USE_EMAIL is true, add the email block to the lemmy config
+if [[ "${USE_EMAIL}" == "1" ]] || [[ "${USE_EMAIL}" == "true" ]]; then
+	sed -i -e '/{{EMAIL_BLOCK}}/r ./templates/lemmy-email.snip' ./live/lemmy.hjson
+
+	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
+		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
+		-e "s|{{LEMMY_NOREPLY_DISPLAY}}|${LEMMY_NOREPLY_DISPLAY}|g" \
+		-e "s|{{SMTP_NOREPLY_FROM}}|${SMTP_NOREPLY_FROM}|g" ./live/lemmy.hjson
+fi
+
+# Delete the email template if it exists
+sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
 # Set up the new deployment
-# Pull and build before running down/up to reduce downtime
 (
 	cd ./live
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
@@ -575,7 +906,7 @@ sleep 2
 declare -a health_checks=("proxy" "lemmy" "lemmy-ui" "pictrs" "postgres")
 
 # Add postfix if the user configured that
-if [[ "${USE_EMAIL}" == "true" ]] || [[ "${USE_EMAIL}" == "1" ]]; then
+if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
 	health_checks+=("postfix")
 fi
 
@@ -611,13 +942,26 @@ for service in "${health_checks[@]}"; do
 done
 
 # Write version file
-echo ${LEMMY_VERSION:?} >./live/version
+if [[ "${REBUILD_SOURCE}" == "1" ]]; then
+	if [[ "${BUILD_BACKEND}" == "1" ]]; then
+		LATEST_BACKEND="git"
+	fi
+	if [[ "${BUILD_FRONTEND}" == "1" ]]; then
+		LATEST_FRONTEND="git"
+	fi
+fi
+
+VERSION_STRING="${LATEST_BACKEND:?};${LATEST_FRONTEND:?}"
+
+echo ${VERSION_STRING:?} >./live/version
 
 echo
-echo "Setup complete! Lemmy version ${LEMMY_VERSION:?} deployed!"
+echo "Deploy complete!"
+echo "   BE: ${LATEST_BACKEND}"
+echo "   FE: ${LATEST_FRONTEND}"
 echo
 
-if [[ "${CURRENT_VERSION}" == "0.0.0" ]]; then
+if [[ "${CURRENT_BACKEND}" == "0.0.0" ]]; then
 	echo "============================================="
 	echo "Lemmy admin credentials:"
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
