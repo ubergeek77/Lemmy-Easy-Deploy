@@ -33,13 +33,19 @@ load_env() {
 	# Check if we have old vars
 	if [[ ${#old_vars[@]} -gt 0 ]]; then
 		echo
-		echo "WARN: You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
+		echo "-------------------------------------------------------------------------------------------"
+		echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+		echo "|"
+		echo "| You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
 		# Loop over the array elements and print them line by line
 		for var in "${old_vars[@]}"; do
-			echo "* $var"
+			echo "| * $var"
 		done
-		echo "WARN: Please update your config.env based on the latest config.env.example"
-		echo "WARN: This deployment may have unexpected behavior until you do this!"
+		echo "|"
+		echo "| Please update your config.env based on the latest config.env.example"
+		echo "| This deployment may have unexpected behavior until you do this!"
+		echo "|"
+		echo "-------------------------------------------------------------------------------------------"
 		if ! ask_user "Do you want to continue regardless?"; then
 			exit 0
 		fi
@@ -49,13 +55,18 @@ load_env() {
 	# Check if we are missing new vars
 	if [[ ${#new_vars[@]} -gt 0 ]]; then
 		echo
-		echo "WARN: You are missing variables introduced in a new version of Lemmy-Easy-Deploy:"
+		echo "-------------------------------------------------------------------------------------------"
+		echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+		echo "|"
 		# Loop over the array elements and print them line by line
 		for var in "${new_vars[@]}"; do
-			echo "* $var"
+			echo "| * $var"
 		done
-		echo "WARN: Please update your config.env based on the latest config.env.example"
-		echo "WARN: This deployment may have unexpected behavior until you do this!"
+		echo "|"
+		echo "| Please update your config.env based on the latest config.env.example"
+		echo "| This deployment may have unexpected behavior until you do this!"
+		echo "|"
+		echo "-------------------------------------------------------------------------------------------"
 		if ! ask_user "Do you want to continue regardless?"; then
 			exit 0
 		fi
