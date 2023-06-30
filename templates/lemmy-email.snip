@@ -1,5 +1,7 @@
   email: {
     smtp_server: "{{SMTP_SERVER}}:{{SMTP_PORT}}"
+    smtp_login: "{{SMTP_LOGIN}}"
+    smtp_password: "{{SMTP_PASSWORD}}"
     smtp_from_address: "{{LEMMY_NOREPLY_DISPLAY}} <{{SMTP_NOREPLY_FROM}}>"
-    tls_type: "none"
+    tls_type: "{{SMTP_TLS_TYPE}}"
   }

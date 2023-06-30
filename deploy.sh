@@ -22,7 +22,7 @@ load_env() {
 	done
 
 	# Check if we DON'T have a new environment variable from this version of Lemmy-Easy-Deploy
-	known_new=("LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX" "ENABLE_EMAIL")
+	known_new=("SMTP_PASSWORD" "SMTP_LOGIN" "SMTP_TLS_TYPE" "LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX" "ENABLE_EMAIL")
 	declare -a new_vars
 	for var in "${known_new[@]}"; do
 		if [[ -z "${!var}" ]]; then
@@ -75,6 +75,7 @@ load_env() {
 	fi
 
 	# Make sure nothing is missing
+	# We omit SMTP_LOGIN and SMTP_PASSWORD to allow for anonymous logins
 	LEMMY_HOSTNAME="${LEMMY_HOSTNAME:-example.com}"
 	SETUP_SITE_NAME="${SETUP_SITE_NAME:-Lemmy}"
 	SETUP_ADMIN_USER="${SETUP_ADMIN_USER:-lemmy}"
@@ -87,6 +88,7 @@ load_env() {
 	SMTP_PORT="${SMTP_PORT:-25}"
 	SMTP_NOREPLY_DISPLAY="${SMTP_NOREPLY_DISPLAY:-Lemmy NoReply}"
 	SMTP_NOREPLY_FROM="${SMTP_NOREPLY_FROM:-noreply@${LEMMY_HOSTNAME}}"
+	SMTP_TLS_TYPE="${SMTP_TLS_TYPE:-none}"
 	ENABLE_POSTFIX="${ENABLE_POSTFIX:-false}"
 	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
 
@@ -201,7 +203,7 @@ detect_runtime() {
 
 	# Check for docker compose or podman compose
 	if [[ "${RUNTIME_CMD}" == "podman" ]]; then
-		echo "WARN: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
+		echo "WARNING: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
 		COMPOSE_CMD="podman-compose"
 		if $COMPOSE_CMD >/dev/null 2>&1; then
 			COMPOSE_FOUND="true"
@@ -495,7 +497,7 @@ while (("$#")); do
 	-f | --force-deploy)
 		FORCE_DEPLOY=1
 		echo
-		echo "WARN: Force deploying; this will regenerate configs and deploy again even if there were no updates"
+		echo "WARNING: Force deploying; this will regenerate configs and deploy again even if there were no updates"
 		echo "Passwords will NOT be re-generated"
 		echo
 		shift 1
@@ -555,14 +557,14 @@ fi
 # Warn user if they are using --rebuild incorrectly
 if [[ "${REBUILD_SOURCE}" == "1" ]] && [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
 	echo
-	echo "WARN: --rebuild specified, but a --lemmy-tag override has been provided (${BACKEND_TAG_OVERRIDE})"
+	echo "WARNING: --rebuild specified, but a --lemmy-tag override has been provided (${BACKEND_TAG_OVERRIDE})"
 	echo "If the sources do not already exist, this version will be checked out, but it will be ignored otherwise"
 	echo
 fi
 
 if [[ "${REBUILD_SOURCE}" == "1" ]] && [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
 	echo
-	echo "WARN: --rebuild specified, but a --webui-tag override has been provided (${FRONTEND_TAG_OVERRIDE})"
+	echo "WARNING: --rebuild specified, but a --webui-tag override has been provided (${FRONTEND_TAG_OVERRIDE})"
 	echo "If the sources do not already exist, this version will be checked out, but it will be ignored otherwise"
 	echo
 fi
@@ -612,6 +614,30 @@ if [[ $LEMMY_HOSTNAME =~ ^https?: ]]; then
 	echo >&2 "ERROR: Don't put http/https in hostname.env! Do it like this:"
 	echo >&2 "LEMMY_HOSTNAME=example.com"
 	exit 1
+fi
+
+# Check for config oddities
+# If email is enabled, the postfix service is disabled, and the server is postfix,
+# warn the user
+if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
+	if [[ "${ENABLE_POSTFIX}" != "1" ]] && [[ "${ENABLE_POSTFIX}" != "true" ]]; then
+		if [[ "${SMTP_SERVER}" == "postfix" ]]; then
+			echo
+			echo "WARNING: You have enabled email, but the postfix service is not enabled, and"
+			echo "you have not changed the variable SMTP_SERVER from the default value of 'postfix'"
+			echo
+			echo "If you are trying to use the embedded postfix service, set ENABLE_POSTFIX to 'true'"
+			echo
+			echo "If you are trying to use an external SMTP service, please set these variables:"
+			echo "* SMTP_TLS_TYPE"
+			echo "* SMTP_LOGIN"
+			echo "* SMTP_PASSWORD"
+			echo
+			if ! ask_user "Do you want to continue regardless?"; then
+				exit 0
+			fi
+		fi
+	fi
 fi
 
 # Read the user's current versions of Lemmy
@@ -797,7 +823,7 @@ if [[ "${BUILD_BACKEND}" == "1" ]]; then
 
 	# Skip checkout if REBUILD_SOURCE=1
 	if [[ "${REBUILD_SOURCE}" == "1" ]]; then
-		echo "WARN: --rebuild was specified; not updating Lemmy Backend source files, building as-is"
+		echo "WARNING: --rebuild was specified; not updating Lemmy Backend source files, building as-is"
 	else
 		echo "Checking out Lemmy Backend ${LATEST_BACKEND:?}..."
 		(
@@ -834,7 +860,7 @@ if [[ "${BUILD_FRONTEND}" == "1" ]]; then
 
 	# Skip checkout if REBUILD_SOURCE=1
 	if [[ "${REBUILD_SOURCE}" == "1" ]]; then
-		echo "WARN: --rebuild was specified; not updating Lemmy Frontend source files, building as-is"
+		echo "WARNING: --rebuild was specified; not updating Lemmy Frontend source files, building as-is"
 	else
 		echo "Checking out Lemmy Frontend ${LATEST_BACKEND:?}..."
 		(
@@ -967,6 +993,9 @@ if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
 		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
 		-e "s|{{LEMMY_NOREPLY_DISPLAY}}|${LEMMY_NOREPLY_DISPLAY}|g" \
+		-e "s|{{SMTP_TLS_TYPE}}|${SMTP_TLS_TYPE}|g" \
+		-e "s|{{SMTP_LOGIN}}|${SMTP_LOGIN}|g" \
+		-e "s|{{SMTP_PASSWORD}}|${SMTP_PASSWORD}|g" \
 		-e "s|{{SMTP_NOREPLY_FROM}}|${SMTP_NOREPLY_FROM}|g" ./live/lemmy.hjson
 fi
 
