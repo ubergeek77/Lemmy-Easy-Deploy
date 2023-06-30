@@ -264,6 +264,15 @@ print_version() {
 }
 
 self_update() {
+	# Check for LED updates
+	LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
+
+	# Check if this version is newer
+	if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" != "1" ]]; then
+		echo "No update available."
+		exit 0
+	fi
+
 	if [[ ! -d "./.git" ]]; then
 		echo >&2 "ERROR: The local .git folder for Lemmy-Easy-Deploy was not found."
 		echo >&2 "Self-updates are only available if you cloned this repo with git clone:"
