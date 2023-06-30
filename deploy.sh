@@ -13,7 +13,7 @@ load_env() {
 	source ./config.env
 
 	# Check if we have an old environment variable from the previous version of Lemmy-Easy-Deploy
-	known_old=("${BUILD_FROM_SOURCE}" "${TLS_ENABLED}" "${LEMMY_NOREPLY_DISPLAY}" "${LEMMY_NOREPLY_FROM}")
+	known_old=("BUILD_FROM_SOURCE" "TLS_ENABLED" "LEMMY_NOREPLY_DISPLAY" "LEMMY_NOREPLY_FROM")
 	declare -a old_vars
 	for var in "${known_old[@]}"; do
 		if [[ -n "${!var}" ]]; then
@@ -22,7 +22,7 @@ load_env() {
 	done
 
 	# Check if we DON'T have a new environment variable from this version of Lemmy-Easy-Deploy
-	known_new=("${LEMMY_TLS_ENABLED}" "${SMTP_SERVER}" "${SMTP_PORT}" "${SMTP_NOREPLY_DISPLAY}" "${SMTP_NOREPLY_FROM}" "${ENABLE_POSTFIX}")
+	known_new=("LEMMY_TLS_ENABLED" "SMTP_SERVER" "SMTP_PORT" "SMTP_NOREPLY_DISPLAY" "SMTP_NOREPLY_FROM" "ENABLE_POSTFIX")
 	declare -a new_vars
 	for var in "${known_new[@]}"; do
 		if [[ -z "${!var}" ]]; then
