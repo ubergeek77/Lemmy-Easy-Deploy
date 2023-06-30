@@ -515,16 +515,13 @@ while (("$#")); do
 		exit 0
 		;;
 	-u | --update)
-		self_update
-		exit 0
+		RUN_SELF_UPDATE=1
 		;;
 	-d | --diag)
-		diag_info
-		exit 0
+		RUN_DIAG=1
 		;;
 	-h | --help)
-		display_help
-		exit 0
+		DISPLAY_HELP=1
 		;;
 	*)
 		echo >&2 "Unrecognized arguments: $@"
@@ -534,6 +531,22 @@ while (("$#")); do
 		;;
 	esac
 done
+
+# Do what the user wanted after parsing arguments, so order doesn't matter
+if [[ "${DISPLAY_HELP}" == "1" ]]; then
+	display_help
+	exit 0
+fi
+
+if [[ "${RUN_DIAG}" == "1" ]]; then
+	diag_info
+	exit 0
+fi
+
+if [[ "${RUN_SELF_UPDATE}" == "1" ]]; then
+	self_update
+	exit 0
+fi
 
 # Warn user if they are using --rebuild incorrectly
 if [[ "${REBUILD_SOURCE}" == "1" ]] && [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
