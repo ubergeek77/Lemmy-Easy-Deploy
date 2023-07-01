@@ -134,8 +134,9 @@ diag_info() {
 	echo ""
 	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
-	echo "Stack:"
+	echo ""
 	docker ps --filter "name=lemmy-easy-deploy" --format "table {{.Image}}\t{{.RunningFor}}\t{{.Status}}"
+	echo ""
 	echo "Integrity:"
 	echo "    $(sha256sum $0)"
 	for f in ./templates/*; do
@@ -161,6 +162,7 @@ diag_info() {
 		echo "*** No files generated ***"
 	else
 		echo "Deploy Version: $(cat ./live/version)"
+		echo ""
 		ls -lhn ./live/
 	fi
 	echo ""
@@ -859,8 +861,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		exit 0
 	fi
 else
-	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d
 	echo "No updates available."
+	echo ""
+	echo "Ensuring deployment is running..."
+	echo ""
+	cd ./live
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up --no-recreate -d
 	exit 0
 fi
 
