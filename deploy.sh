@@ -651,13 +651,12 @@ if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" == "1" ]]
 	echo "================================================================"
 	echo
 	# Exclude update from unattended yes answers
-	USER_ANSWER_YES="${ANSWER_YES}"
-	ANSWER_YES=0
-	if ask_user "Would you like to install the update?"; then
-		self_update
-		exit 0
+	if [[ "${ANSWER_YES}" != "1" ]]; then
+		if ask_user "Would you like to install the update?"; then
+			self_update
+			exit 0
+		fi
 	fi
-	ANSWER_YES="${USER_ANSWER_YES}"
 fi
 
 # Warn user if they are using --rebuild incorrectly
