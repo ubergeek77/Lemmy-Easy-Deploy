@@ -315,8 +315,7 @@ self_update() {
 		exit 1
 	fi
 
-	echo "--> Updating Lemmy-Easy-Deploy..."
-	if ! git pull; then
+	print_update_error() {
 		echo >&2 "ERROR: Update failed. Have you modified Lemmy-Easy-Deploy?"
 		echo >&2 "You can try to reset Lemmy-Easy-Deploy manually, but you will lose any changes you made!"
 		echo >&2 "Back up any foreign files you may have in this directory, then run these commands:"
@@ -324,20 +323,25 @@ self_update() {
 		echo >&2 "    $0 --update"
 		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
 		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
-	fi
-	LED_TAG="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
-	if ! git checkout ${LED_TAG}; then
-		echo >&2 "ERROR: Update failed. Have you modified Lemmy-Easy-Deploy?"
-		echo >&2 "You can try to reset Lemmy-Easy-Deploy manually, but you will lose any changes you made!"
-		echo >&2 "Back up any foreign files you may have in this directory, then run these commands:"
-		echo >&2 "    git reset --hard"
-		echo >&2 "    $0 --update"
-		echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
-		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
-		exit 1
-	fi
+	}
 
+	echo "--> Updating Lemmy-Easy-Deploy..."
+	if ! git checkout main; then
+		print_update_error
+		exit 1
+	fi
+	if ! git pull; then
+		print_update_error
+		exit 1
+	fi
+	if ! git checkout ${LED_UPDATE_CHECK}; then
+		print_update_error
+		exit 1
+	fi
+	echo ""
+	echo "Update complete! Version ${LED_UPDATE_CHECK} installed."
+	echo ""
+	exit 0
 }
 
 # Validate if an input is in 0.0.0 format
@@ -499,21 +503,6 @@ shutdown_deployment() {
 # Exit on error
 set -e
 
-# Check for LED updates
-LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
-
-# Check if this version is newer
-if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" == "1" ]]; then
-	echo
-	echo "================================================================"
-	echo "|   A new Lemmy-Easy-Deploy update is available!"
-	echo "|       ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
-	echo "|"
-	echo "|   Run $0 --update to install the update"
-	echo "================================================================"
-	echo
-fi
-
 # parse arguments
 while (("$#")); do
 	case "$1" in
@@ -613,6 +602,27 @@ fi
 if [[ "${RUN_SELF_UPDATE}" == "1" ]]; then
 	self_update
 	exit 0
+fi
+
+# Check for LED updates
+LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
+
+# Check if this version is newer
+if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" == "1" ]]; then
+	echo
+	echo "================================================================"
+	echo "|   A new Lemmy-Easy-Deploy update is available!"
+	echo "|       ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
+	echo "================================================================"
+	echo
+	# Exclude update from unattended yes answers
+	USER_ANSWER_YES="${ANSWER_YES}"
+	ANSWER_YES=0
+	if ask_user "Would you like to install the update?"; then
+		self_update
+		exit 0
+	fi
+	ANSWER_YES="${USER_ANSWER_YES}"
 fi
 
 # Warn user if they are using --rebuild incorrectly
