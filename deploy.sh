@@ -279,6 +279,8 @@ detect_runtime() {
 		echo "please install the official version of Docker before filing an issue:"
 		echo "    https://docs.docker.com/engine/install/"
 		echo ""
+		echo "This warning is not fatal. The script will now continue."
+		echo ""
 		echo "-----------------------------------------------------------------------"
 	fi
 
@@ -462,6 +464,16 @@ ask_user() {
 }
 
 check_image_arch() {
+	# If this is an unsupported version of Docker, we can't check the normal way
+	# Docker versions <24 do not support checking images that have attestation tags
+	if ((DOCKER_MAJOR < 24)); then
+		if docker pull "$1" >/dev/null 2>&1; then
+			return 0
+		else
+			return 1
+		fi
+	fi
+
 	# Detect the current docker architecture
 	if [[ -z "${DOCKER_ARCH}" ]]; then
 		export DOCKER_ARCH="$(docker version --format '{{.Server.Arch}}')"
@@ -512,15 +524,7 @@ check_image_arch() {
 	if echo "$MANIFEST" | grep -q "${INSPECT_MATCH}"; then
 		return 0
 	else
-		if ((DOCKER_MAJOR < 24)); then
-			# If this is an unsupported version of Docker, try pulling the image as a final check
-			# Docker versions <24 do not support checking images that have attestation tags
-			if docker pull "$1" >/dev/null 2>&1; then
-				return 0
-			else
-				return 1
-			fi
-		fi
+		return 1
 	fi
 }
 
