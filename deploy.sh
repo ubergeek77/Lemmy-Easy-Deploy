@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.2.0"
+LED_CURRENT_VERSION="1.2.1"
 
 # Trap exits
 
