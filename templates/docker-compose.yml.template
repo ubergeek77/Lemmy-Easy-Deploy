@@ -21,9 +21,6 @@ services:
     depends_on:
       - pictrs
       - lemmy-ui
-    networks:
-      - lemmyinternal
-      - lemmyexternalproxy
     restart: always
     logging: *default-logging
 
@@ -34,9 +31,6 @@ services:
     depends_on:
       - postgres
       - pictrs
-    networks:
-      - lemmyinternal
-      - lemmybridge
     restart: always
     logging: *default-logging
 
@@ -47,8 +41,6 @@ services:
       - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
     depends_on:
       - lemmy
-    networks:
-      - lemmyinternal
     restart: always
     logging: *default-logging
 
@@ -65,9 +57,6 @@ services:
       - ./pictrs.env
     volumes:
       - pictrs_data:/mnt
-    networks:
-      - lemmyinternal
-      - lemmybridge
     restart: always
     logging: *default-logging
 
@@ -80,8 +69,6 @@ services:
       - ./postgres.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - lemmyinternal
     restart: always
     logging: *default-logging
 
@@ -93,10 +80,3 @@ volumes:
   pictrs_data:
   postgres_data:
 {{EMAIL_VOLUMES}}
-
-networks:
-  lemmyexternalproxy:
-  lemmybridge:
-  lemmyinternal:
-    driver: bridge
-    internal: true

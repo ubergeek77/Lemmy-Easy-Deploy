@@ -7,8 +7,5 @@
       - postfix_mail:/var/mail
       - postfix_spool:/var/spool/postfix
       - postfix_keys:/etc/opendkim/keys
-    networks:
-      - lemmyinternal
-      - lemmybridge
     restart: always
     logging: *default-logging

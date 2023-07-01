@@ -24,6 +24,9 @@ git clone https://github.com/ubergeek77/Lemmy-Easy-Deploy
 # Change into the directory
 cd ./Lemmy-Easy-Deploy
 
+# Check out the latest tag
+git checkout $(git describe --tags `git rev-list --tags --max-count=1`)
+
 # Copy config.env.example to config.env
 cp ./config.env.example ./config.env
 
@@ -36,7 +39,7 @@ cp ./config.env.example ./config.env
 
 The default deployment as outlined above will get you running in ***about 1 minute!***
 
-*NOTE: on non x86_64 platforms, such as ARM, **Lemmy-Easy-Deploy will have to compile Lemmy from source,** as ARM-based Docker Hub images are not always available for the latest Lemmy version. This will increase deploy time to about 20-30 minutes while Lemmy compiles.*
+See the **FAQ & Troubleshooting** section for answers to common questions, i.e. where your data is stored.
 
 What is this?
 ---
@@ -66,13 +69,21 @@ CLI arguments and configuration:
 
 ```bash
 Usage:
-  ./deploy.sh [-u|--update-version <version>] [-f|--force-deploy] [-d|--diag] [-h|--help]
+  ./deploy.sh [options]
+
+Run with no options to check for Lemmy updates and deploy them
 
 Options:
-  -u|--update-version <version>   Override the update checker and update to <version> instead.
-  -f|--force-deploy               Skip the update checker and force (re)deploy the latest/specified version.
-  -d|--diag                       Dump diagnostic information for issue reporting, then exit
-  -h|--help                       Show this help message.
+  -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)
+  -l|--lemmy-tag <tag>   Install a specific version of the Lemmy Backend
+  -w|--webui-tag <tag>   Install a specific version of the Lemmy WebUI (will use value from --lemmy-tag if missing)
+  -f|--force-deploy      Skip the update checker and force (re)deploy the latest/specified version
+  -r|--rebuild           Deploy from source, don't update the Git repos, and deploy them as-is, implies -f and ignores -l/-w
+  -y|--yes               Answer Yes to any prompts asking for confirmation
+  -v|--version           Prints the current version of Lemmy-Easy-Deploy
+  -u|--update            Update Lemmy-Easy-Deploy
+  -d|--diag              Dump diagnostic information for issue reporting, then exit
+  -h|--help              Show this help message
 ```
 
 *Tip: If you have edited your `config.env` and want to re-deploy your changes, but no updates are available, use `./deploy.sh -f`!*
@@ -112,8 +123,9 @@ FAQ & Troubleshooting
 	```
 
 - Where is all my data?
+	- Deployment files and generated secrets are in `./live`. Don't delete them!
 	- This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`.
-	- This is all Docker under the hood, so you can find your data stored in Docker volumes. List them with
+	- This is all Docker under the hood, so you can find your Lemmy-specific data (such as the database) stored in Docker volumes. List them with
 	```bash
 	docker volume ls
 	```

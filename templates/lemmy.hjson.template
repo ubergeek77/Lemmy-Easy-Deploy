@@ -8,7 +8,7 @@
   hostname: "{{LEMMY_HOSTNAME}}"
   bind: "0.0.0.0"
   port: 8536
-  tls_enabled: {{TLS_ENABLED}}
+  tls_enabled: {{LEMMY_TLS_ENABLED}}
 
   pictrs: {
     url: "http://pictrs:8080/"
