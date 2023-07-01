@@ -256,9 +256,9 @@ detect_runtime() {
 
 	# Grab the runtime versions:
 	DOCKER_VERSION="$($RUNTIME_CMD --version | head -n 1)"
-	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*)")"
+	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*")"
 	COMPOSE_VERSION="$($COMPOSE_CMD version | head -n 1)"
-	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*)")"
+	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*")"
 
 	echo "Detected runtime: $RUNTIME_CMD (${DOCKER_VERSION})"
 	echo "Detected compose: $COMPOSE_CMD (${COMPOSE_VERSION})"
