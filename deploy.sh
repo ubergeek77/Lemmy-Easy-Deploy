@@ -147,6 +147,12 @@ diag_info() {
 	if [[ ! -f "./config.env" ]]; then
 		echo "*** config.env not found ***"
 	else
+		if [[ -n "${CF_API_TOKEN}" ]]; then
+			USES_CLOUDFLARE="Yes"
+		else
+			USES_CLOUDFLARE="No"
+		fi
+		echo "        CLOUDFLARE: ${USES_CLOUDFLARE}"
 		echo " CADDY_DISABLE_TLS: ${CADDY_DISABLE_TLS}"
 		echo "   CADDY_HTTP_PORT: ${CADDY_HTTP_PORT}"
 		echo "  CADDY_HTTPS_PORT: ${CADDY_HTTPS_PORT}"
@@ -271,7 +277,7 @@ detect_runtime() {
 	echo ""
 
 	# Warn if using an unsupported version
-	if ((DOCKER_MAJOR < 24)) || ((COMPOSE_MAJOR < 1)); then
+	if ((DOCKER_MAJOR < 24)) || ((COMPOSE_MAJOR < 2)); then
 		echo "-----------------------------------------------------------------------"
 		echo "WARNING: Your version of Docker is outdated and unsupported."
 		echo ""
