@@ -467,6 +467,7 @@ check_image_arch() {
 	# If this is an unsupported version of Docker, we can't check the normal way
 	# Docker versions <24 do not support checking images that have attestation tags
 	if ((DOCKER_MAJOR < 24)); then
+		echo "WARNING: Unsupported Docker version; pulling full image first"
 		if docker pull "$1" >/dev/null 2>&1; then
 			return 0
 		else
