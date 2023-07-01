@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.2.1"
+LED_CURRENT_VERSION="1.2.2"
 
 # Trap exits
 
@@ -254,8 +254,14 @@ detect_runtime() {
 		exit 1
 	fi
 
-	echo "Detected runtime: $RUNTIME_CMD ($($RUNTIME_CMD --version))"
-	echo "Detected compose: $COMPOSE_CMD ($($COMPOSE_CMD version))"
+	# Grab the runtime versions:
+	DOCKER_VERSION="$($RUNTIME_CMD --version | head -n 1)"
+	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*)")"
+	COMPOSE_VERSION="$($COMPOSE_CMD version | head -n 1)"
+	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*)")"
+
+	echo "Detected runtime: $RUNTIME_CMD (${DOCKER_VERSION})"
+	echo "Detected compose: $COMPOSE_CMD (${COMPOSE_VERSION})"
 
 	RUNTIME_STATE="ERROR"
 	if docker run --rm -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
@@ -263,6 +269,19 @@ detect_runtime() {
 	fi
 	echo "   Runtime state: $RUNTIME_STATE"
 	echo ""
+
+	# Warn if using an unsupported version
+	if ((DOCKER_MAJOR < 24)) || ((COMPOSE_MAJOR < 1)); then
+		echo "-----------------------------------------------------------------------"
+		echo "WARNING: Your version of Docker is outdated and unsupported."
+		echo ""
+		echo "The deployment will likely work regardless, but if you run into issues,"
+		echo "please install the official version of Docker before filing an issue:"
+		echo "    https://docs.docker.com/engine/install/"
+		echo ""
+		echo "-----------------------------------------------------------------------"
+	fi
+
 }
 
 display_help() {
@@ -304,8 +323,9 @@ self_update() {
 		echo "No update available."
 		exit 0
 	else
+		echo ""
 		echo "Update found!"
-		echo "${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
+		echo "    ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
 	fi
 
 	if [[ ! -d "./.git" ]]; then
@@ -326,6 +346,7 @@ self_update() {
 	}
 
 	echo "--> Updating Lemmy-Easy-Deploy..."
+	echo "-----------------------------------------------------------"
 	if ! git checkout main; then
 		print_update_error
 		exit 1
@@ -338,6 +359,7 @@ self_update() {
 		print_update_error
 		exit 1
 	fi
+	echo "-----------------------------------------------------------"
 	echo ""
 	echo "Update complete! Version ${LED_UPDATE_CHECK} installed."
 	echo ""
@@ -490,7 +512,15 @@ check_image_arch() {
 	if echo "$MANIFEST" | grep -q "${INSPECT_MATCH}"; then
 		return 0
 	else
-		return 1
+		if ((DOCKER_MAJOR < 24)); then
+			# If this is an unsupported version of Docker, try pulling the image as a final check
+			# Docker versions <24 do not support checking images that have attestation tags
+			if docker pull "$1" >/dev/null 2>&1; then
+				return 0
+			else
+				return 1
+			fi
+		fi
 	fi
 }
 
