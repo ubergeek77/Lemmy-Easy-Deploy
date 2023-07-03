@@ -913,7 +913,11 @@ LATEST_BACKEND="${BACKEND_TAG_OVERRIDE}"
 if [[ -z "${LATEST_BACKEND}" ]]; then
 	LATEST_BACKEND="$(latest_github_tag LemmyNet/lemmy)"
 fi
-echo " Current Backend Version: ${CURRENT_BACKEND:?}"
+
+if [[ "${CURRENT_BACKEND}" != "0.0.0" ]]; then
+	echo " Current Backend Version: ${CURRENT_BACKEND:?}"
+fi
+
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
 	echo "  Target Backend Version: Local Git Repo"
 elif [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
@@ -960,7 +964,11 @@ LATEST_FRONTEND="${FRONTEND_TAG_OVERRIDE}"
 if [[ "${LATEST_FRONTEND}" == "" ]]; then
 	LATEST_FRONTEND="$(latest_github_tag LemmyNet/lemmy-ui)"
 fi
-echo " Current Frontend Version: ${CURRENT_FRONTEND:?}"
+
+if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]]; then
+	echo " Current Frontend Version: ${CURRENT_FRONTEND:?}"
+fi
+
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
 	echo "  Target Frontend Version: Local Git Repo"
 elif [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
@@ -1000,13 +1008,13 @@ else
 fi
 
 if [[ "${FORCE_DEPLOY}" != "1" ]]; then
-	if [[ "${BACKEND_OUTDATED}" == "1" ]]; then
+	if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${BACKEND_OUTDATED}" == "1" ]]; then
 		echo "A Backend update is available!"
 		echo "   BE: ${CURRENT_BACKEND} --> ${LATEST_BACKEND}"
 		echo
 	fi
 
-	if [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
+	if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]] && [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
 		echo "A Frontend update is available!"
 		echo "   FE: ${CURRENT_FRONTEND} --> ${LATEST_FRONTEND}"
 		echo
@@ -1046,7 +1054,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "|-------------------------------------------------------------------|"
 		echo
 	fi
-	if ! ask_user "Would you like to deploy this update?"; then
+	# Show the user an initial install message if they didn't have a previous version
+	PROMPT_STRING="Would you like to deploy this update?"
+	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
+		PROMPT_STRING="Ready to deploy?"
+	fi
+	if ! ask_user "${PROMPT_STRING:?}"; then
 		exit 0
 	fi
 else
