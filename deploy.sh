@@ -890,7 +890,7 @@ if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "|                                                                       |"
 	echo "| If you continue, any credentials and settings that have already been  |"
 	echo "| generated will be used again, but the Lemmy instance you deploy will  |"
-	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.  |"
+	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.    |"
 	echo "|                                                                       |"
 	echo "| If deploy.sh does not start Lemmy from this state, you may need to    |"
 	echo "| run deploy.sh with the -f flag to force-redeploy.                     |"
@@ -905,6 +905,7 @@ if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${HAS_VOLUME}" == "0" ]]; then
 		exit 0
 	fi
 fi
+echo
 
 # Determine Backend update version
 # Allow the user to override the version to update to
@@ -1150,6 +1151,8 @@ if [[ "${BUILD_FRONTEND}" == "1" ]]; then
 		)
 	fi
 fi
+
+echo
 
 # Determine the images to use
 # Try to use my images first, then the official ones
