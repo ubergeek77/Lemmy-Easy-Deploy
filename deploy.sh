@@ -549,7 +549,7 @@ install_custom_env() {
 		sed -i -e 's|{{ CADDY_EXTRA_ENV }}|./customCaddy.env|g' ./live/docker-compose.yml
 		cp ./custom/customCaddy.env ./live
 	else
-		sed -i '{{ CADDY_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ CADDY_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customLemmy.env ]]; then
@@ -557,7 +557,7 @@ install_custom_env() {
 		sed -i -e 's|{{ LEMMY_EXTRA_ENV }}|./customLemmy.env|g' ./live/docker-compose.yml
 		cp ./custom/customLemmy.env ./live
 	else
-		sed -i '{{ LEMMY_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ LEMMY_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customLemmy-ui.env ]]; then
@@ -565,7 +565,7 @@ install_custom_env() {
 		sed -i -e 's|{{ LEMMY_UI_EXTRA_ENV }}|./customLemmy-ui.env|g' ./live/docker-compose.yml
 		cp ./custom/customLemmy-ui.env ./live
 	else
-		sed -i '{{ LEMMY_UI_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ LEMMY_UI_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customPictrs.env ]]; then
@@ -573,7 +573,7 @@ install_custom_env() {
 		sed -i -e 's|{{ PICTRS_EXTRA_ENV }}|./customPictrs.env|g' ./live/docker-compose.yml
 		cp ./custom/customPictrs.env ./live
 	else
-		sed -i '{{ PICTRS_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ PICTRS_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customPostgres.env ]]; then
@@ -581,7 +581,7 @@ install_custom_env() {
 		sed -i -e 's|{{ POSTGRES_EXTRA_ENV }}|./customPostgres.env|g' ./live/docker-compose.yml
 		cp ./custom/customPostgres.env ./live
 	else
-		sed -i '{{ POSTGRES_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ POSTGRES_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customPostfix.env ]]; then
@@ -589,7 +589,7 @@ install_custom_env() {
 		sed -i -e 's|{{ POSTFIX_EXTRA_ENV }}|./customPostfix.env|g' ./live/docker-compose.yml
 		cp ./custom/customPostfix.env ./live
 	else
-		sed -i '{{ POSTFIX_EXTRA_ENV }}/d' ./live/docker-compose.yml
+		sed -i '/{{ POSTFIX_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
@@ -597,7 +597,7 @@ install_custom_env() {
 		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
-		sed -i '{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
+		sed -i '/{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
 	fi
 }
 
@@ -849,14 +849,14 @@ if [[ "${HAS_VOLUME}" == "1" ]]; then
 		echo "| for this deployment, but they will not match the credentials used     |"
 		echo "| in the data volumes that exist. You will be unable to log in.         |"
 		echo "|                                                                       |"
-		echo "|             ---> This deployment is very likely to fail <---          |"
+		echo "|                THIS DEPLOYMENT IS VERY LIKELY TO FAIL!                |"
 		echo "|                                                                       |"
 		echo "| You are probably trying to do a clean deployment. However,            |"
 		echo "| deleting the ./live folder is not enough. Lemmy's data is stored      |"
 		echo "| in named Docker volumes in the Docker system directory.               |"
 		echo "|                                                                       |"
 		echo "| To list the volumes used by Lemmy-Easy-Deploy, run:                   |"
-		echo "|            docker volume ls | grep \"lemmy-easy-deploy_\"             |"
+		echo "|            docker volume ls | grep \"lemmy-easy-deploy_\"               |"
 		echo "|                                                                       |"
 		echo "| To delete one of those volumes, run:                                  |"
 		echo "|            docker volume rm <name-of-the-volume>                      |"
@@ -1282,11 +1282,14 @@ fi
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
 # Set up the new deployment
+# Don't run down if we can assume they don't have a deployment already
 (
 	cd ./live
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
-	$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
+	if [[ "${HAS_VOLUME}" != "1" ]]; then
+		$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
+	fi
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
 
