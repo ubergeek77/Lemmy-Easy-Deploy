@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.2.2"
+LED_CURRENT_VERSION="1.2.3"
 
 # Trap exits
 
@@ -262,9 +262,9 @@ detect_runtime() {
 
 	# Grab the runtime versions:
 	DOCKER_VERSION="$($RUNTIME_CMD --version | head -n 1)"
-	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*")"
+	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*" | sed 's/[^0-9]//g')"
 	COMPOSE_VERSION="$($COMPOSE_CMD version | head -n 1)"
-	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*")"
+	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*" | sed 's/[^0-9]//g')"
 
 	echo "Detected runtime: $RUNTIME_CMD (${DOCKER_VERSION})"
 	echo "Detected compose: $COMPOSE_CMD (${COMPOSE_VERSION})"
@@ -541,6 +541,66 @@ shutdown_deployment() {
 	$COMPOSE_CMD -p "lemmy-easy-deploy" down
 }
 
+# Detect if the user is using any custom files, copy them if needed,
+# and modify the docker-compose.yml to use them
+install_custom_env() {
+	if [[ -f ./custom/customCaddy.env ]]; then
+		echo "--> Found customCaddy.env"
+		sed -i -e 's|{{ CADDY_EXTRA_ENV }}|./customCaddy.env|g' ./live/docker-compose.yml
+		cp ./custom/customCaddy.env ./live
+	else
+		sed -i '/{{ CADDY_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customLemmy.env ]]; then
+		echo "--> Found customLemmy.env"
+		sed -i -e 's|{{ LEMMY_EXTRA_ENV }}|./customLemmy.env|g' ./live/docker-compose.yml
+		cp ./custom/customLemmy.env ./live
+	else
+		sed -i '/{{ LEMMY_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customLemmy-ui.env ]]; then
+		echo "--> Found customLemmy-ui.env"
+		sed -i -e 's|{{ LEMMY_UI_EXTRA_ENV }}|./customLemmy-ui.env|g' ./live/docker-compose.yml
+		cp ./custom/customLemmy-ui.env ./live
+	else
+		sed -i '/{{ LEMMY_UI_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customPictrs.env ]]; then
+		echo "--> Found customPictrs.env"
+		sed -i -e 's|{{ PICTRS_EXTRA_ENV }}|./customPictrs.env|g' ./live/docker-compose.yml
+		cp ./custom/customPictrs.env ./live
+	else
+		sed -i '/{{ PICTRS_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customPostgres.env ]]; then
+		echo "--> Found customPostgres.env"
+		sed -i -e 's|{{ POSTGRES_EXTRA_ENV }}|./customPostgres.env|g' ./live/docker-compose.yml
+		cp ./custom/customPostgres.env ./live
+	else
+		sed -i '/{{ POSTGRES_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customPostfix.env ]]; then
+		echo "--> Found customPostfix.env"
+		sed -i -e 's|{{ POSTFIX_EXTRA_ENV }}|./customPostfix.env|g' ./live/docker-compose.yml
+		cp ./custom/customPostfix.env ./live
+	else
+		sed -i '/{{ POSTFIX_EXTRA_ENV }}/d' ./live/docker-compose.yml
+	fi
+
+	if [[ -f ./custom/customPostgresql.conf ]]; then
+		echo "--> Found customPostgresql.conf"
+		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
+		cp ./custom/customPostgresql.conf ./live
+	else
+		sed -i '/{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
+	fi
+}
+
 # Exit on error
 set -e
 
@@ -768,6 +828,85 @@ else
 	CURRENT_FRONTEND="0.0.0"
 fi
 
+# Detect if the user has an existing postgres volume
+if docker volume ls | grep -q lemmy-easy-deploy_postgres_data 2>&1 >/dev/null; then
+	HAS_VOLUME=1
+else
+	HAS_VOLUME=0
+fi
+
+# Warn if the user is missing the credential files, but volumes exist
+if [[ "${HAS_VOLUME}" == "1" ]]; then
+	if [[ ! -f "./live/lemmy.env" ]] || [[ ! -f "./live/pictrs.env" ]] || [[ ! -f "./live/postgres.env" ]]; then
+		echo ""
+		echo "|-----------------------------------------------------------------------|"
+		echo "|    !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!    |"
+		echo "|                                                                       |"
+		echo "| You do not currently have a deployment tracked by Lemmy-Easy-Deploy,  |"
+		echo "| but data volumes for Lemmy already exist.                             |"
+		echo "|                                                                       |"
+		echo "| If you continue, Lemmy-Easy-Deploy will generate new credentials      |"
+		echo "| for this deployment, but they will not match the credentials used     |"
+		echo "| in the data volumes that exist. You will be unable to log in.         |"
+		echo "|                                                                       |"
+		echo "|                THIS DEPLOYMENT IS VERY LIKELY TO FAIL!                |"
+		echo "|                                                                       |"
+		echo "| You are probably trying to do a clean deployment. However,            |"
+		echo "| deleting the ./live folder is not enough. Lemmy's data is stored      |"
+		echo "| in named Docker volumes in the Docker system directory.               |"
+		echo "|                                                                       |"
+		echo "| To list the volumes used by Lemmy-Easy-Deploy, run:                   |"
+		echo "|            docker volume ls | grep \"lemmy-easy-deploy_\"               |"
+		echo "|                                                                       |"
+		echo "| To delete one of those volumes, run:                                  |"
+		echo "|            docker volume rm <name-of-the-volume>                      |"
+		echo "|                                                                       |"
+		echo "| Please be careful when deleting volumes!                              |"
+		echo "| Do not delete data you want to keep!                                  |"
+		echo "-------------------------------------------------------------------------"
+		echo ""
+		if ! ask_user "Do you want to continue regardless?"; then
+			exit 0
+		fi
+	fi
+fi
+
+# Warn if the user has a currently tracked version, but volumes do not exist
+if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${HAS_VOLUME}" == "0" ]]; then
+	echo "|-----------------------------------------------------------------------|"
+	echo "|    !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!    |"
+	echo "|                                                                       |"
+	echo "| You have a deployment tracked by Lemmy-Easy-Deploy,                   |"
+	echo "| but a data volume for Lemmy does not exist.                           |"
+	echo "|                                                                       |"
+	echo "| If you are trying to migrate your installation from another machine,  |"
+	echo "| copying the ./live folder is not enough. Lemmy's data is stored       |"
+	echo "| in named Docker volumes in the Docker system directory.               |"
+	echo "|                                                                       |"
+	echo "| In that case, you will need to migrate those named volumes over to    |"
+	echo "| this machine before continuing. Lemmy-Easy-Deploy cannot currently    |"
+	echo "| do this for you automatically, but there may be a feature to do so    |"
+	echo "| in the future.                                                        |"
+	echo "|                                                                       |"
+	echo "| If you continue, any credentials and settings that have already been  |"
+	echo "| generated will be used again, but the Lemmy instance you deploy will  |"
+	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.    |"
+	echo "|                                                                       |"
+	echo "| If deploy.sh does not start Lemmy from this state, you may need to    |"
+	echo "| run deploy.sh with the -f flag to force-redeploy.                     |"
+	echo "|                                                                       |"
+	echo "| Otherwise, to start over with a fresh deployment, it is recommended   |"
+	echo "| to clear the ./live folder. But please be careful!                    |"
+	echo "|                                                                       |"
+	echo "| Do not delete data you want to keep!                                  |"
+	echo "-------------------------------------------------------------------------"
+	echo ""
+	if ! ask_user "Do you want to continue regardless?"; then
+		exit 0
+	fi
+fi
+echo
+
 # Determine Backend update version
 # Allow the user to override the version to update to
 
@@ -775,7 +914,11 @@ LATEST_BACKEND="${BACKEND_TAG_OVERRIDE}"
 if [[ -z "${LATEST_BACKEND}" ]]; then
 	LATEST_BACKEND="$(latest_github_tag LemmyNet/lemmy)"
 fi
-echo " Current Backend Version: ${CURRENT_BACKEND:?}"
+
+if [[ "${CURRENT_BACKEND}" != "0.0.0" ]]; then
+	echo " Current Backend Version: ${CURRENT_BACKEND:?}"
+fi
+
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
 	echo "  Target Backend Version: Local Git Repo"
 elif [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
@@ -794,7 +937,7 @@ if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_BACKEND}" != "1" && "${REBUILD_
 	for v in "${backend_versions[@]}"; do
 		if ! is_version_string $v; then
 			echo >&2 ""
-			echo "-----------------------------------------------------------------------------------------------------------"
+			echo >&2 "-----------------------------------------------------------------------------------------------------------"
 			echo >&2 "ERROR: Unable to determine Backend upgrade path. One of the below versions is not in 0.0.0 format:"
 			echo >&2 "   Installed Backend: ${CURRENT_BACKEND}"
 			echo >&2 "      Target Backend: ${LATEST_BACKEND}"
@@ -822,7 +965,11 @@ LATEST_FRONTEND="${FRONTEND_TAG_OVERRIDE}"
 if [[ "${LATEST_FRONTEND}" == "" ]]; then
 	LATEST_FRONTEND="$(latest_github_tag LemmyNet/lemmy-ui)"
 fi
-echo " Current Frontend Version: ${CURRENT_FRONTEND:?}"
+
+if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]]; then
+	echo " Current Frontend Version: ${CURRENT_FRONTEND:?}"
+fi
+
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
 	echo "  Target Frontend Version: Local Git Repo"
 elif [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
@@ -839,8 +986,8 @@ if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_FRONTEND}" != "1" && "${REBUILD
 	frontend_versions=("${CURRENT_FRONTEND}" "${LATEST_FRONTEND}")
 	for v in "${frontend_versions[@]}"; do
 		if ! is_version_string $v; then
+			echo >&2 "-----------------------------------------------------------------------------------------------------------"
 			echo >&2 "ERROR: Unable to determine Frontend upgrade path. One of the below versions is not in 0.0.0 format:"
-			echo "-----------------------------------------------------------------------------------------------------------"
 			echo >&2 "   Installed Frontend: ${CURRENT_FRONTEND}"
 			echo >&2 "      Target Frontend: ${LATEST_FRONTEND}"
 			echo >&2 ""
@@ -862,13 +1009,13 @@ else
 fi
 
 if [[ "${FORCE_DEPLOY}" != "1" ]]; then
-	if [[ "${BACKEND_OUTDATED}" == "1" ]]; then
+	if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${BACKEND_OUTDATED}" == "1" ]]; then
 		echo "A Backend update is available!"
 		echo "   BE: ${CURRENT_BACKEND} --> ${LATEST_BACKEND}"
 		echo
 	fi
 
-	if [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
+	if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]] && [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
 		echo "A Frontend update is available!"
 		echo "   FE: ${CURRENT_FRONTEND} --> ${LATEST_FRONTEND}"
 		echo
@@ -878,13 +1025,14 @@ fi
 # Ask the user if they want to update
 if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; then
 	# Print scary warning if this is a backend update and data exists
-	if docker volume inspect lemmy-easy-deploy_postgres_data >/dev/null 2>&1 && [[ "${BACKEND_OUTDATED}" == "1" ]]; then
+	if [[ "${HAS_VOLUME}" == "1" ]] && [[ "${CURRENT_BACKEND}" != "${LATEST_BACKEND}" ]]; then
 		echo "--------------------------------------------------------------------|"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|                                                                   |"
 		echo "| Updates to the Lemmy Backend perform a database migration!        |"
 		echo "|                                                                   |"
 		echo "| This process is **generally safe and does not risk data loss.**   |"
+		echo "|                                                                   |"
 		echo "| However, if you update, but run into a new bug/issue,             |"
 		echo "| you will NOT be able to roll back to the previous version!        |"
 		echo "| You will be stuck with the bug/issue until an update is released. |"
@@ -907,7 +1055,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "|-------------------------------------------------------------------|"
 		echo
 	fi
-	if ! ask_user "Would you like to deploy this update?"; then
+	# Show the user an initial install message if they didn't have a previous version
+	PROMPT_STRING="Would you like to deploy this update?"
+	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
+		PROMPT_STRING="Ready to deploy?"
+	fi
+	if ! ask_user "${PROMPT_STRING:?}"; then
 		exit 0
 	fi
 else
@@ -998,6 +1151,8 @@ if [[ "${BUILD_FRONTEND}" == "1" ]]; then
 		)
 	fi
 fi
+
+echo
 
 # Determine the images to use
 # Try to use my images first, then the official ones
@@ -1100,6 +1255,9 @@ fi
 sed -i '/{{EMAIL_SERVICE}}/d' ./live/docker-compose.yml
 sed -i '/{{EMAIL_VOLUMES}}/d' ./live/docker-compose.yml
 
+# Add or delete the custom env/config sections, and copy the config files
+install_custom_env
+
 # Generate initial lemmy.hjson
 sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	-e "s|{{PICTRS__API_KEY}}|${PICTRS__API_KEY:?}|g" \
@@ -1127,11 +1285,14 @@ fi
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
 # Set up the new deployment
+# Don't run down if we can assume they don't have a deployment already
 (
 	cd ./live
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
-	$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
+	if [[ "${HAS_VOLUME}" != "1" ]]; then
+		$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
+	fi
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
 
@@ -1202,7 +1363,7 @@ echo "   BE: ${LATEST_BACKEND}"
 echo "   FE: ${LATEST_FRONTEND}"
 echo
 
-if [[ "${CURRENT_BACKEND}" == "0.0.0" ]]; then
+if [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "============================================="
 	echo "Lemmy admin credentials:"
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"

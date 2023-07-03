@@ -11,6 +11,7 @@ services:
     {{COMPOSE_CADDY_IMAGE}}
     env_file:
       - ./caddy.env
+      - {{ CADDY_EXTRA_ENV }}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -26,6 +27,7 @@ services:
 
   lemmy:
     {{COMPOSE_LEMMY_IMAGE}}
+    env_file: {{ LEMMY_EXTRA_ENV }}
     volumes:
       - ./lemmy.hjson:/config/config.hjson
     depends_on:
@@ -36,6 +38,7 @@ services:
 
   lemmy-ui:
     {{COMPOSE_LEMMY_UI_IMAGE}}
+    env_file: {{ LEMMY_UI_EXTRA_ENV }}
     environment:
       - LEMMY_UI_LEMMY_INTERNAL_HOST=lemmy:8536
       - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
@@ -55,6 +58,7 @@ services:
       - PICTRS__MEDIA__GIF__MAX_FRAME_COUNT=400
     env_file:
       - ./pictrs.env
+      - {{ PICTRS_EXTRA_ENV }}
     volumes:
       - pictrs_data:/mnt
     restart: always
@@ -67,8 +71,10 @@ services:
       - POSTGRES_DB=lemmy
     env_file:
       - ./postgres.env
+      - {{ POSTGRES_EXTRA_ENV }}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - {{ POSTGRES_CONF }}
     restart: always
     logging: *default-logging
 

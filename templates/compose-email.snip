@@ -2,6 +2,7 @@
     image: mwader/postfix-relay
     env_file:
       - ./postfix.env
+      - {{ POSTFIX_EXTRA_ENV }}
     volumes:
       - postfix_data:/var/lib/postfix
       - postfix_mail:/var/mail
