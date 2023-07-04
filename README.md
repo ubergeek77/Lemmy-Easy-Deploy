@@ -57,12 +57,12 @@ The script generates all the deployment files necessary to deploy Lemmy based on
 
 *NOTE: It is not recommended to edit any of the files in `./live` directly! Changes may not take effect like you might expect, and they will be replaced on each redeployment. If you need to customize your deployment, advanced users can edit the files in `./templates` accordingly*
 
-Updates
+Updating your instance
 ---
 
 If Lemmy releases a new update, simply run `./deploy.sh` again to deploy it. The script will automatically fetch the latest release and update your deployment. If a version of Lemmy you want to run has not been tagged yet, see below for how to specify versions.
 
-Over time, the recommended versions of `pictrs` and `postgres` may be updated by the Lemmy team. This script won't automatically pull those, and there isn't a great way to get those automatically. I will do my best to keep the template files in this repository up to date. When I have released new updates to Lemmy-Easy-Deploy, the script will print a notce reminding you to update. The script ***will not** update itself.*
+Over time, I will release updates to Lemmy-Easy-Deploy to keep the configuration compatible with future versions of Lemmy. If you see an update notice in Lemmy-Easy-Deploy, please update!
 
 CLI arguments and configuration:
 ---
@@ -77,7 +77,7 @@ Options:
   -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)
   -l|--lemmy-tag <tag>   Install a specific version of the Lemmy Backend
   -w|--webui-tag <tag>   Install a specific version of the Lemmy WebUI (will use value from --lemmy-tag if missing)
-  -f|--force-deploy      Skip the update checker and force (re)deploy the latest/specified version
+  -f|--force-deploy      Skip the update checks and force (re)deploy the latest/specified version (must use this for rc versions!)
   -r|--rebuild           Deploy from source, don't update the Git repos, and deploy them as-is, implies -f and ignores -l/-w
   -y|--yes               Answer Yes to any prompts asking for confirmation
   -v|--version           Prints the current version of Lemmy-Easy-Deploy
@@ -88,12 +88,26 @@ Options:
 
 *Tip: If you have edited your `config.env` and want to re-deploy your changes, but no updates are available, use `./deploy.sh -f`!*
 
-There are some additional configuration options available in `config.env`. See that file for more details. You can configure things such as:
+There are some additional configuration options available in `config.env`. See that file for more details.
 
-- Your Lemmy hostname
-- A Cloudflare API key to use DNS HTTPS certificate generation (works better for Cloudflare Proxy users)
-- Build Lemmy from source instead of pulling the Docker Hub image
-- ...and even more options for advanced users! See the comments in `config.env` for more details!
+If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files, and they will be passed to each service as an `env_file`. This allows you to specify any environment variable you want, for any service you want.
+
+```
+./custom/customCaddy.env
+./custom/customLemmy.env
+./custom/customLemmy-ui.env
+./custom/customPictrs.env
+./custom/customPostgres.env
+./custom/customPostfix.env
+```
+
+In addition, you can override the Postfix configuration file by saving your own here:
+
+```
+./custom/customPostgresql.conf
+```
+
+Redeploy your instance after creating any of these files.
 
 
 FAQ & Troubleshooting

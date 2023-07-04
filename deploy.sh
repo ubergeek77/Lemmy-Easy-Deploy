@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.2.3"
+LED_CURRENT_VERSION="1.2.4"
 
 # Trap exits
 
@@ -164,10 +164,15 @@ diag_info() {
 	fi
 	echo ""
 	echo "==== Generated Files ===="
-	if [[ ! -d "./live" ]]; then
+	if [[ ! -d "./live" ]] || [ -z "$(ls -A ./live)" ]; then
 		echo "*** No files generated ***"
 	else
-		echo "Deploy Version: $(cat ./live/version)"
+		if [[ -f ./live/version ]]; then
+			DEPLOY_VERSION="$(cat ./live/version)"
+		else
+			DEPLOY_VERSION="(not deployed)"
+		fi
+		echo "Deploy Version: ${DEPLOY_VERSION}"
 		echo ""
 		ls -lhn ./live/
 	fi
@@ -302,7 +307,7 @@ display_help() {
 	echo "  -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)"
 	echo "  -l|--lemmy-tag <tag>   Install a specific version of the Lemmy Backend"
 	echo "  -w|--webui-tag <tag>   Install a specific version of the Lemmy WebUI (will use value from --lemmy-tag if missing)"
-	echo "  -f|--force-deploy      Skip the update checker and force (re)deploy the latest/specified version"
+	echo "  -f|--force-deploy      Skip the update checks and force (re)deploy the latest/specified version (must use this for rc versions!)"
 	echo "  -r|--rebuild           Deploy from source, don't update the Git repos, and deploy them as-is, implies -f and ignores -l/-w"
 	echo "  -y|--yes               Answer Yes to any prompts asking for confirmation"
 	echo "  -v|--version           Prints the current version of Lemmy-Easy-Deploy"
@@ -400,8 +405,13 @@ compare_versions() {
 }
 
 latest_github_tag() {
+	# Use a github token if supplied
+	unset CURL_ARGS
+	if [[ -n "${GITHUB_TOKEN}" ]]; then
+		CURL_ARGS="-H \"Authorization: Bearer ${GITHUB_TOKEN}\""
+	fi
 	ratelimit_error='"message":"API rate limit exceeded for'
-	RESPONSE="$(curl -s https://api.github.com/repos/$1/releases/latest)"
+	RESPONSE="$(curl -s ${CURL_ARGS} https://api.github.com/repos/$1/releases/latest)"
 	if [[ "${RESPONSE,,}" == *"${ratelimit_error,,}"* ]]; then
 		echo >&2 ""
 		echo >&2 "---------------------------------------------------------------------"
@@ -417,7 +427,7 @@ latest_github_tag() {
 
 	# If no result, check the latest tag that doesn't contain the words beta or rc
 	if [[ -z "${RESULT}" ]]; then
-		RESPONSE="$(curl -s https://api.github.com/repos/$1/git/refs/tags)"
+		RESPONSE="$(curl -s ${CURL_ARGS} https://api.github.com/repos/$1/git/refs/tags)"
 		while IFS= read -r line; do
 			if [[ "${line,,}" != *beta* && "${line,,}" != *rc* ]]; then
 				RESULT="$(echo ${line} | cut -d'/' -f3 | tr -d '",')"
@@ -556,6 +566,28 @@ install_custom_env() {
 		echo "--> Found customLemmy.env"
 		sed -i -e 's|{{ LEMMY_EXTRA_ENV }}|./customLemmy.env|g' ./live/docker-compose.yml
 		cp ./custom/customLemmy.env ./live
+
+		# Warn the user if they have changed CADDY_HTTP_PORT or CADDY_HTTPS_PORT but have not set LEMMY_CORS_ORIGIN
+		# Test in a subshell to not mess with any environment variables
+		(
+			source ./custom/customLemmy.env
+			if [[ -z "${LEMMY_CORS_ORIGIN}" ]]; then
+				if [[ "${CADDY_HTTP_PORT}" != "80" ]] || [[ "${CADDY_HTTPS_PORT}" != "443" ]]; then
+					echo ""
+					echo "----------------------------------------------------------------------------------------------------"
+					echo "WARNING: You have changed one or more ports used by Caddy, but have not specified LEMMY_CORS_ORIGIN"
+					echo "This may result in your instance throwing errors and becoming unusable."
+					echo ""
+					echo "To fix this, create the file './custom/customLemmy.env', and put the following inside of it:"
+					echo "    LEMMY_CORS_ORIGIN=http://<your-domain>:<custom-port>"
+					echo ""
+					echo "Change the protocol, domain, and port as needed."
+					echo "----------------------------------------------------------------------------------------------------"
+					echo ""
+				fi
+			fi
+		)
+
 	else
 		sed -i '/{{ LEMMY_EXTRA_ENV }}/d' ./live/docker-compose.yml
 	fi
@@ -754,14 +786,25 @@ detect_runtime
 
 # If the runtime state is bad, we can't continue
 if [[ "${RUNTIME_STATE}" != "OK" ]]; then
-	echo >&2 "ERROR: Docker runtime not healthy."
+	echo >&2 "----------------------------------------------------------------------------------------"
+	echo >&2 "ERROR: Failed to run Docker."
+	echo >&2 ""
 	echo >&2 "Something is wrong with your Docker installation."
+	echo >&2 ""
+	echo >&2 "Possible fixes:"
+	echo >&2 "    * Add your user to the 'docker' group (recommended)"
+	echo >&2 "    * Reboot or re-log after adding your user to the 'docker' group"
+	echo >&2 "    * Run this script with sudo (try the 'docker' group method first)"
+	echo >&2 "    * Docker is not running or is not enabled (systemctl enable docker && systemctl start docker) "
+	echo >&2 "    * Reboot your machine after installing Docker for the first time"
+	echo >&2 ""
 	echo >&2 "Please ensure you can run the following command on your own without errors:"
 	echo >&2 "    docker run --rm -v "\$\(pwd\):/host:ro" hello-world"
 	echo >&2 ""
 	echo >&2 "If you see any errors while running that command, please Google the error messages"
 	echo >&2 "to see if any of the solutions work for you. Once Docker is functional on your system,"
 	echo >&2 "you can try running Lemmy-Easy-Deploy again."
+	echo >&2 "----------------------------------------------------------------------------------------"
 	echo >&2 ""
 	exit 1
 fi
@@ -942,10 +985,11 @@ if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_BACKEND}" != "1" && "${REBUILD_
 			echo >&2 "   Installed Backend: ${CURRENT_BACKEND}"
 			echo >&2 "      Target Backend: ${LATEST_BACKEND}"
 			echo >&2 ""
-			echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
-			echo >&2 "$0 -l <some-tag> -f"
+			echo >&2 "Are you trying to install an \"rc\" version manually? Combine the -l flag with -f to skip the version check:"
+			echo >&2 "        $0 -l <some-tag> -f"
 			echo >&2 ""
-			echo >&2 "This will get your deployment back on an \"update track\" and allow for auto updates again."
+			echo >&2 "Did you previously install a git or \"rc\" version? Use the -f flag to return to the latest stable version:"
+			echo >&2 "        $0 -f"
 			echo >&2 ""
 			echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
 			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
@@ -991,10 +1035,11 @@ if [[ "${FORCE_DEPLOY}" != "1" ]] && [[ "${BUILD_FRONTEND}" != "1" && "${REBUILD
 			echo >&2 "   Installed Frontend: ${CURRENT_FRONTEND}"
 			echo >&2 "      Target Frontend: ${LATEST_FRONTEND}"
 			echo >&2 ""
-			echo >&2 "Did you install a commit/tag/rc version manually? If so, use the following command to manually upgrade:"
-			echo >&2 "$0 -w <some-tag> -f"
+			echo >&2 "Are you trying to install an \"rc\" version manually? Combine the -w flag with -f to skip the version check:"
+			echo >&2 "        $0 -w <some-tag> -f"
 			echo >&2 ""
-			echo >&2 "This will get your deployment back on an \"update track\" and allow for auto updates again."
+			echo >&2 "Did you previously install a git or \"rc\" version? Use the -f flag to return to the latest stable version:"
+			echo >&2 "        $0 -f"
 			echo >&2 ""
 			echo >&2 "If you did not do anything special with your installation, and are confused by this message, please report this:"
 			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
@@ -1285,12 +1330,12 @@ fi
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
 # Set up the new deployment
-# Don't run down if we can assume they don't have a deployment already
+# Only run down if we can assume the user has a deployment already
 (
 	cd ./live
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
-	if [[ "${HAS_VOLUME}" != "1" ]]; then
+	if [[ "${HAS_VOLUME}" == "1" ]]; then
 		$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
 	fi
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
