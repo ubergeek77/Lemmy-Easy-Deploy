@@ -43,7 +43,7 @@ See the **FAQ & Troubleshooting** section for answers to common questions, i.e. 
 
 What is this?
 ---
-This repo provides an "out of the box" installer for Lemmy that sets up everything for you automatically. Unlike the Ansible installer, this does not require a Debian-based distribution, and can be run on pretty much any system with Docker installed.
+This repo provides an "out of the box" installer for [Lemmy](https://join-lemmy.org/) that sets up everything for you automatically. Unlike the Ansible installer, this does not require a Debian-based distribution, and can be run on pretty much any system with Docker installed.
 
 Features:
 
@@ -60,7 +60,7 @@ The script generates all the deployment files necessary to deploy Lemmy based on
 Updating your instance
 ---
 
-If Lemmy releases a new update, simply run `./deploy.sh` again to deploy it. The script will automatically fetch the latest release and update your deployment. If a version of Lemmy you want to run has not been tagged yet, see below for how to specify versions.
+If Lemmy releases a new update, simply run `./deploy.sh` again to deploy it. The script will automatically fetch the latest release and update your deployment. If you want to run an unreleased version of Lemmy, such as an rc version, see the command line arguments below.
 
 Over time, I will release updates to Lemmy-Easy-Deploy to keep the configuration compatible with future versions of Lemmy. If you see an update notice in Lemmy-Easy-Deploy, please update!
 
@@ -90,7 +90,7 @@ Options:
 
 There are some additional configuration options available in `config.env`. See that file for more details.
 
-If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files, and they will be passed to each service as an `env_file`. This allows you to specify any environment variable you want, for any service you want.
+If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files, and they will be passed to each respective service as an `env_file`. This allows you to specify any environment variable you want, for any service you want.
 
 ```
 ./custom/customCaddy.env
