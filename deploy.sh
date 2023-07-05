@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LED_CURRENT_VERSION="1.2.4"
+LED_CURRENT_VERSION="1.2.5"
 
 # Trap exits
 
@@ -116,6 +116,17 @@ load_env() {
 
 }
 
+# Check if the system's hostname is problematic or not
+hostname_valid() {
+	if [[ -f /etc/hostname ]]; then
+		SYSTEM_HOSTNAME="$(cat /etc/hostname | sed -e 's| ||g' | tr -d '\n')"
+		if [[ "${SYSTEM_HOSTNAME}" == "${LEMMY_HOSTNAME}" ]]; then
+			return 1
+		fi
+	fi
+	return 0
+}
+
 diag_info() {
 	set +e
 	load_env
@@ -123,14 +134,20 @@ diag_info() {
 	echo "==== Docker Information ===="
 	detect_runtime
 	echo "==== System Information ===="
-	echo "KERNEL: $(uname -r) ($(uname -m))"
-	echo "SHELL: $SHELL"
+	HOSTNAME_FMT="OK"
+	if ! hostname_valid; then
+		HOSTNAME_FMT="BAD"
+	fi
+	echo "HOSTNAME: ${HOSTNAME_FMT}"
+	echo "  KERNEL: $(uname -r) ($(uname -m))"
+	echo "   SHELL: $SHELL"
 	if [[ ! -f "/etc/os-release" ]]; then
 		echo "*** /etc/os-release not found ***"
 	else
 		cat /etc/os-release | grep --color=never NAME
 	fi
-	echo "MEMORY: $(free -h)"
+	echo "  MEMORY:"
+	echo "$(free -h)"
 	echo ""
 	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
@@ -336,9 +353,10 @@ self_update() {
 		echo "No update available."
 		exit 0
 	else
-		echo ""
-		echo "Update found!"
-		echo "    ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
+		if [[ "${UPDATE_FROM_PROMPT}" != "1" ]]; then
+			echo ""
+			echo "--> Update available! (${LED_UPDATE_CHECK})"
+		fi
 	fi
 
 	if [[ ! -d "./.git" ]]; then
@@ -358,7 +376,7 @@ self_update() {
 		echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues"
 	}
 
-	echo "--> Updating Lemmy-Easy-Deploy..."
+	echo "--> Installing Lemmy-Easy-Deploy ${LED_UPDATE_CHECK}..."
 	echo "-----------------------------------------------------------"
 	if ! git checkout main; then
 		print_update_error
@@ -691,8 +709,8 @@ while (("$#")); do
 		shift 1
 		;;
 	-v | --version)
-		print_version
-		exit 0
+		RUN_PRINT_VERSION=1
+		shift 1
 		;;
 	-u | --update)
 		RUN_SELF_UPDATE=1
@@ -721,6 +739,11 @@ if [[ "${DISPLAY_HELP}" == "1" ]]; then
 	exit 0
 fi
 
+if [[ "${RUN_PRINT_VERSION}" == "1" ]]; then
+	print_version
+	exit 0
+fi
+
 if [[ "${RUN_SHUTDOWN}" == "1" ]]; then
 	detect_runtime
 	shutdown_deployment
@@ -743,14 +766,15 @@ LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
 # Check if this version is newer
 if [[ "$(compare_versions ${LED_CURRENT_VERSION} ${LED_UPDATE_CHECK})" == "1" ]]; then
 	echo
-	echo "================================================================"
-	echo "|   A new Lemmy-Easy-Deploy update is available!"
-	echo "|       ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}"
-	echo "================================================================"
+	echo "===================================================="
+	echo "|     A Lemmy-Easy-Deploy update is available!     |"
+	echo "|                 ${LED_CURRENT_VERSION} --> ${LED_UPDATE_CHECK}                  |"
+	echo "==================================================="
 	echo
 	# Exclude update from unattended yes answers
 	if [[ "${ANSWER_YES}" != "1" ]]; then
-		if ask_user "Would you like to install the update?"; then
+		if ask_user "Would you like to cancel the current operation and install the update now?"; then
+			UPDATE_FROM_PROMPT=1
 			self_update
 			exit 0
 		fi
@@ -831,6 +855,33 @@ if [[ $LEMMY_HOSTNAME =~ ^https?: ]]; then
 fi
 
 # Check for config oddities
+
+# If the hostname matches the Lemmy hostname, there will be problems
+if ! hostname_valid; then
+	echo ""
+	echo "---------------------------------------------------------------------------------------------------"
+	echo "WARNING: The hostname of this server matches the hostname you chose for Lemmy."
+	echo ""
+	echo "Your Lemmy server will be unable to resolve itself to a real IP, and will instead"
+	echo "use the IP '127.0.1.1' everywhere '${LEMMY_HOSTNAME}' is referenced."
+	echo ""
+	echo "If you upload an icon or banner to your instance, those images will not load."
+	echo ""
+	echo "In Lemmy-UI 0.18.0 and up, having an icon will cause a **Fatal Server Error** and your instance will be unusable."
+	echo ""
+	echo "It is HIGHLY RECOMMENDED that you change the hostname of your server before deploying."
+	echo "You can look up how to do this on your own, but if you are on Ubuntu, this link may help:"
+	echo "    https://www.cyberciti.biz/faq/ubuntu-change-hostname-command/"
+	echo ""
+	echo "Don't forget to **reboot your machine** after changing the hostname."
+	echo "---------------------------------------------------------------------------------------------------"
+	echo ""
+	echo "If you continue right now, your instance may become inoperable."
+	if ! ask_user "Do you want to continue regardless?"; then
+		exit 0
+	fi
+fi
+
 # If email is enabled, the postfix service is disabled, and the server is postfix,
 # warn the user
 if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
