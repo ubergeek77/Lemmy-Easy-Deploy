@@ -9,6 +9,14 @@ FAQ & Troubleshooting
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
 	```
 
+- How do I specify a custom Postgres config to optimize my Postgres database?
+	- Create a the directory `./custom`, and place your custom Postgres config at `./custom/customPostgresql.conf`
+	- Please see the [Usage & Configuration section of the README](https://github.com/ubergeek77/Lemmy-Easy-Deploy/edit/main/README.md#usage--configuration) for more info.
+
+- I want to change an environment variable that's not in `config.env` and not in `docker-compose.yml`. What should I do?
+	- Create a the directory `./custom`, and place your custom environment variable in the appropriately named file.
+	 - Please see the [Usage & Configuration section of the README](https://github.com/ubergeek77/Lemmy-Easy-Deploy/edit/main/README.md#usage--configuration) for more info.
+
 - I can't reach my Lemmy instance and/or HTTPS isn't working!
 	- Make sure your firewall isn't blocking ports 80 and 443. On most server distributions, `ufw` blocks this by default, so check your `ufw` settings
 	- **If you're using Cloudflare's proxy,** specify an API token in `config.env`, **and change Cloudflare's SSL mode to Full (Strict)**.

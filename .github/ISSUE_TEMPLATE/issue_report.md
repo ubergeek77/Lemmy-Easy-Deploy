@@ -1,6 +1,6 @@
 ---
-name: Issue report
-about: Report an issue with Lemmy-Easy-Deploy or your deployment
+name: Report Issue/Request Help
+about: Report an issue with Lemmy-Easy-Deploy, or ask for help with your deployment.
 title: ''
 labels: ''
 assignees: ''
