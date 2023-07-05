@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**Did you check the [Troubleshooting section](https://github.com/ubergeek77/Lemmy-Easy-Deploy/blob/main/TROUBLESHOOTING.md) for your issue first?**
+**Did you check the [FAQ & Troubleshooting section](https://github.com/ubergeek77/Lemmy-Easy-Deploy/blob/main/TROUBLESHOOTING.md) for answers to common questions and issues?**
 > Yes/No
 
 **Describe the issue**
