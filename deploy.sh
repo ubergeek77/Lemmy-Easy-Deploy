@@ -33,69 +33,72 @@ load_env() {
 	done
 
 	# Check if we have old vars
-	if [[ ${#old_vars[@]} -gt 0 ]]; then
-		echo
-		echo "-------------------------------------------------------------------------------------------"
-		echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
-		echo "|"
-		echo "| You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
-		# Loop over the array elements and print them line by line
-		for var in "${old_vars[@]}"; do
-			echo "| * $var"
-		done
-		echo "|"
-		echo "| Please update your config.env based on the latest config.env.example"
-		echo "|"
-		echo "| Here's how:"
-		echo "|"
-		echo "| 1. Make a backup of your settings:"
-		echo "|       cp ./config.env ./config.bak"
-		echo "|"
-		echo "| 2. Make a new config file based on the template: "
-		echo "|       cp ./config.env.example ./config.env"
-		echo "|"
-		echo "| 3. Manually edit config.env, and refer to config.bak for any old settings you had"
-		echo "|"
-		echo "| --> This deployment may have unexpected behavior until you do this! <--"
-		echo "|"
-		echo "-------------------------------------------------------------------------------------------"
-		if ! ask_user "Do you want to continue regardless?"; then
-			exit 0
+	# Ignore this warning if just running diagnostics
+	if [[ "${RUN_DIAG}" != "1" ]]; then
+		if [[ ${#old_vars[@]} -gt 0 ]]; then
+			echo
+			echo "-------------------------------------------------------------------------------------------"
+			echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+			echo "|"
+			echo "| You have variables from an old version of Lemmy-Easy-Deploy that are no longer used:"
+			# Loop over the array elements and print them line by line
+			for var in "${old_vars[@]}"; do
+				echo "| * $var"
+			done
+			echo "|"
+			echo "| Please update your config.env based on the latest config.env.example"
+			echo "|"
+			echo "| Here's how:"
+			echo "|"
+			echo "| 1. Make a backup of your settings:"
+			echo "|       cp ./config.env ./config.bak"
+			echo "|"
+			echo "| 2. Make a new config file based on the template: "
+			echo "|       cp ./config.env.example ./config.env"
+			echo "|"
+			echo "| 3. Manually edit config.env, and refer to config.bak for any old settings you had"
+			echo "|"
+			echo "| --> This deployment may have unexpected behavior until you do this! <--"
+			echo "|"
+			echo "-------------------------------------------------------------------------------------------"
+			if ! ask_user "Do you want to continue regardless?"; then
+				exit 0
+			fi
+			echo
 		fi
-		echo
-	fi
 
-	# Check if we are missing new vars
-	if [[ ${#new_vars[@]} -gt 0 ]]; then
-		echo
-		echo "-------------------------------------------------------------------------------------------"
-		echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
-		echo "|"
-		echo "| You are missing variables that were introduced in an update to Lemmy-Easy-Deploy"
-		# Loop over the array elements and print them line by line
-		for var in "${new_vars[@]}"; do
-			echo "| * $var"
-		done
-		echo "|"
-		echo "| Please update your config.env based on the latest config.env.example"
-		echo "|"
-		echo "| Here's how:"
-		echo "|"
-		echo "| 1. Make a backup of your settings:"
-		echo "|       cp ./config.env ./config.bak"
-		echo "|"
-		echo "| 2. Make a new config file based on the template: "
-		echo "|       cp ./config.env.example ./config.env"
-		echo "|"
-		echo "| 3. Manually edit config.env, and refer to config.bak for any old settings you had"
-		echo "|"
-		echo "| --> This deployment may have unexpected behavior until you do this! <--"
-		echo "|"
-		echo "-------------------------------------------------------------------------------------------"
-		if ! ask_user "For these missing settings, the default values will be used. Do you want to continue?"; then
-			exit 0
+		# Check if we are missing new vars
+		if [[ ${#new_vars[@]} -gt 0 ]]; then
+			echo
+			echo "-------------------------------------------------------------------------------------------"
+			echo "| !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+			echo "|"
+			echo "| You are missing variables that were introduced in an update to Lemmy-Easy-Deploy"
+			# Loop over the array elements and print them line by line
+			for var in "${new_vars[@]}"; do
+				echo "| * $var"
+			done
+			echo "|"
+			echo "| Please update your config.env based on the latest config.env.example"
+			echo "|"
+			echo "| Here's how:"
+			echo "|"
+			echo "| 1. Make a backup of your settings:"
+			echo "|       cp ./config.env ./config.bak"
+			echo "|"
+			echo "| 2. Make a new config file based on the template: "
+			echo "|       cp ./config.env.example ./config.env"
+			echo "|"
+			echo "| 3. Manually edit config.env, and refer to config.bak for any old settings you had"
+			echo "|"
+			echo "| --> This deployment may have unexpected behavior until you do this! <--"
+			echo "|"
+			echo "-------------------------------------------------------------------------------------------"
+			if ! ask_user "For these missing settings, the default values will be used. Do you want to continue?"; then
+				exit 0
+			fi
+			echo
 		fi
-		echo
 	fi
 
 	# Make sure nothing is missing
@@ -152,18 +155,22 @@ diag_info() {
 		SHELL_FMT="$SHELL **(ps unavailable)"
 	fi
 
-	echo "   SHELL: $()"
-	if [[ ! -f "/etc/os-release" ]]; then
-		echo "*** /etc/os-release not found ***"
-	else
-		cat /etc/os-release | grep --color=never NAME
-	fi
+	echo "   SHELL: $(detect_shell)"
 	echo "  MEMORY:"
 	if ! command -v free &>/dev/null; then
 		echo "*** 'free' command unavailable ***"
 	else
 		echo "$(free -h)"
 	fi
+	echo ""
+	echo "DISTRO:"
+	echo "----------------------------"
+	if [[ ! -f "/etc/os-release" ]]; then
+		echo "*** /etc/os-release not found ***"
+	else
+		cat /etc/os-release | grep --color=never NAME
+	fi
+	echo "----------------------------"
 	echo ""
 	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
