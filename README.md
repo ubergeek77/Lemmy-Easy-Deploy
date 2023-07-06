@@ -60,7 +60,7 @@ Usage & Configuration
 Usage:
   ./deploy.sh [options]
 
-Run with no options to check for Lemmy updates and deploy them
+Run with no options to check for Lemmy updates and deploy them, and/or restart a stopped deployment.
 
 Options:
   -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)
