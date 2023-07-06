@@ -1,14 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.2.5"
-
-# Trap exits
+LED_CURRENT_VERSION="1.2.6"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $SCRIPT_DIR
 
 load_env() {
+	if [[ ! -f ./config.env ]]; then
+		return 1
+	fi
+
 	# Source the config file
 	source ./config.env
 
@@ -134,20 +136,34 @@ diag_info() {
 	echo "==== Docker Information ===="
 	detect_runtime
 	echo "==== System Information ===="
+	OS_FMT="$(uname -s)"
+	if [[ "${OS_FMT}" != "Linux" ]]; then
+		OS_FMT="${OS_FMT} (unsupported)"
+	fi
+	echo "      OS: ${OS_FMT}"
+	echo "  KERNEL: $(uname -r) ($(uname -m))"
 	HOSTNAME_FMT="OK"
 	if ! hostname_valid; then
 		HOSTNAME_FMT="BAD"
 	fi
 	echo "HOSTNAME: ${HOSTNAME_FMT}"
-	echo "  KERNEL: $(uname -r) ($(uname -m))"
-	echo "   SHELL: $SHELL"
+	SHELL_FMT="$(ps -o pid,comm | grep $$ | rev | cut -d' ' -f 1 | rev)"
+	if [[ "$?" != "0" ]]; then
+		SHELL_FMT="$SHELL **(ps unavailable)"
+	fi
+
+	echo "   SHELL: $()"
 	if [[ ! -f "/etc/os-release" ]]; then
 		echo "*** /etc/os-release not found ***"
 	else
 		cat /etc/os-release | grep --color=never NAME
 	fi
 	echo "  MEMORY:"
-	echo "$(free -h)"
+	if ! command -v free &>/dev/null; then
+		echo "*** 'free' command unavailable ***"
+	else
+		echo "$(free -h)"
+	fi
 	echo ""
 	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
@@ -155,10 +171,21 @@ diag_info() {
 	docker ps --filter "name=lemmy-easy-deploy" --format "table {{.Image}}\t{{.RunningFor}}\t{{.Status}}"
 	echo ""
 	echo "Integrity:"
-	echo "    $(sha256sum $0)"
-	for f in ./templates/*; do
-		echo "    $(sha256sum $f)"
-	done
+	if ! command -v sha256sum &>/dev/null; then
+		echo "   *** 'sha256sum' command unavailable"
+	else
+		echo "    $(sha256sum $0)"
+		for f in ./templates/*; do
+			echo "    $(sha256sum $f)"
+		done
+	fi
+	echo ""
+	echo "Custom Files: "
+	if [[ ! -d "./custom" ]] || [ -z "$(ls -A ./custom)" ]; then
+		echo "*** No custom files ***"
+	else
+		ls -lhn ./custom
+	fi
 	echo ""
 	echo "==== Settings ===="
 	if [[ ! -f "./config.env" ]]; then
@@ -284,9 +311,9 @@ detect_runtime() {
 
 	# Grab the runtime versions:
 	DOCKER_VERSION="$($RUNTIME_CMD --version | head -n 1)"
-	DOCKER_MAJOR="$(echo ${DOCKER_VERSION} | grep -oP "(?<=version )[^.]*" | sed 's/[^0-9]//g')"
+	DOCKER_MAJOR="$(echo ${DOCKER_VERSION#*version } | cut -d '.' -f 1 | tr -cd '[:digit:]')"
 	COMPOSE_VERSION="$($COMPOSE_CMD version | head -n 1)"
-	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION} | grep -oP "(?<=version )[^.]*" | sed 's/[^0-9]//g')"
+	COMPOSE_MAJOR="$(echo ${COMPOSE_VERSION#*version } | cut -d '.' -f 1 | tr -cd '[:digit:]')"
 
 	echo "Detected runtime: $RUNTIME_CMD (${DOCKER_VERSION})"
 	echo "Detected compose: $COMPOSE_CMD (${COMPOSE_VERSION})"
@@ -298,16 +325,42 @@ detect_runtime() {
 	echo "   Runtime state: $RUNTIME_STATE"
 	echo ""
 
-	# Warn if using an unsupported version
-	if ((DOCKER_MAJOR < 24)) || ((COMPOSE_MAJOR < 2)); then
+	# Warn if using an unsupported Docker version
+	if ((DOCKER_MAJOR < 20)); then
 		echo "-----------------------------------------------------------------------"
 		echo "WARNING: Your version of Docker is outdated and unsupported."
+		echo ""
+		echo "Only Docker Engine versions 20 and up are supported by Docker Inc:"
+		echo "    https://endoflife.date/docker-engine"
 		echo ""
 		echo "The deployment will likely work regardless, but if you run into issues,"
 		echo "please install the official version of Docker before filing an issue:"
 		echo "    https://docs.docker.com/engine/install/"
 		echo ""
-		echo "This warning is not fatal. The script will now continue."
+		echo "-----------------------------------------------------------------------"
+	fi
+
+	# Warn if using an unsupported Compose version
+	if ((COMPOSE_MAJOR < 2)); then
+		echo "-----------------------------------------------------------------------"
+		echo "WARNING: Your version of Docker Compose is outdated and unsupported."
+		echo ""
+		echo "Docker Compose v2 has been Generally Available (GA) for over 1 year,"
+		echo "and as of June 2023, Docker Compose v1 has been officially deprecated"
+		echo "by Docker Inc."
+		echo ""
+		echo "https://www.docker.com/blog/new-docker-compose-v2-and-v1-deprecation/"
+		echo ""
+		echo "Popular Linux distributions, such as Debian and Ubuntu, are still distributing"
+		echo "outdated and unofficial packages of Docker and Docker Compose."
+		echo ""
+		echo "However, those packages are neither supported nor endorsed by Docker Inc."
+		echo ""
+		echo "Lemmy-Easy-Deploy might still work regardless, but testing is only done"
+		echo "with Docker Compose v2. Compose v1 is not supported."
+		echo ""
+		echo "For the best experience, please install the official version of Docker:"
+		echo "    https://docs.docker.com/engine/install/"
 		echo ""
 		echo "-----------------------------------------------------------------------"
 	fi
@@ -318,7 +371,7 @@ display_help() {
 	echo "Usage:"
 	echo "  $0 [options]"
 	echo ""
-	echo "Run with no options to check for Lemmy updates and deploy them"
+	echo "Run with no options to check for Lemmy updates and deploy them, and/or restart a stopped deployment."
 	echo ""
 	echo "Options:"
 	echo "  -s|--shutdown          Shut down a running Lemmy-Easy-Deploy deployment (does not delete data)"
@@ -469,25 +522,24 @@ latest_github_tag() {
 }
 
 ask_user() {
-	local prompt="${1} [Y/n] "
+	prompt="${1} [Y/n] "
 
 	# Always answer yes if the user specified -y
-	if [[ "${ANSWER_YES}" == "1" ]]; then
+	if [ "${ANSWER_YES}" = "1" ]; then
 		echo "$prompt Y"
 		return 0
 	fi
 
 	while true; do
-		read -rp "$prompt" answer
+		printf "%s" "$prompt"
+		read answer
 
-		case "${answer,,}" in
+		case "$(echo "$answer" | tr '[:upper:]' '[:lower:]')" in
 		y | yes | "")
 			return 0
-			break
 			;;
 		n | no)
 			return 1
-			break
 			;;
 		*)
 			echo ""
@@ -651,6 +703,81 @@ install_custom_env() {
 	fi
 }
 
+# Detect the current shell
+detect_shell() {
+	# Get the current shell
+	# If for some reason ps fails, we can make an educated guess on $SHELL
+	DETECTED_SHELL=$(ps -o pid,comm | grep $$ | rev | cut -d' ' -f 1 | rev)
+	if [ "$?" != "0" ]; then
+		DETECTED_SHELL="$SHELL"
+	fi
+	echo "${DETECTED_SHELL}"
+}
+
+# Do compatibility checks
+check_compatibility() {
+	DETECTED_SHELL=$(detect_shell)
+
+	# Make sure the user is using bash
+	case "${DETECTED_SHELL}" in
+	*bash) ;;
+	*)
+		echo ""
+		echo "|--------------------------------------------------------------------------------------------------"
+		echo "|    !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! !!! WARNING !!! WARNING !!!"
+		echo "|"
+		echo "| This shell is not Bash. Lemmy-Easy-Deploy is a Bash script that uses features of Bash."
+		echo "|"
+		echo "| The current shell has been detected to be: '${DETECTED_SHELL}'"
+		echo "|"
+		echo "| If you continue, this script is very likely to break, as it is not compatible with other shells."
+		echo "|"
+		echo "| You have the option to proceed anyway, but this could create a broken deployment, or the script"
+		echo "| could behave in unexpected ways. You have been warned."
+		echo "|--------------------------------------------------------------------------------------------------"
+		echo ""
+		if ! ask_user "Proceed with this unsupported shell?"; then
+			exit 0
+		fi
+		;;
+	esac
+
+	# Check for non-Linux systems (i.e. macos)
+	DETECTED_OS="$(uname -s)"
+	if [[ "${DETECTED_OS,,}" != "linux" ]]; then
+		echo ""
+		echo "|--------------------------------------------------------------------------------------------------|"
+		echo "|    !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! !!! WARNING !!! WARNING !!!   |"
+		echo "|                                                                                                  |"
+		echo "| This system is not a Linux system. You appear to have a \"${DETECTED_OS}\" system.               |"
+		echo "|                                                                                                  |"
+		echo "| Lemmy-Easy-Deploy is intended for use on Linux systems only, and the images it deploys are built |"
+		echo "| specifically for Linux platforms.                                                                |"
+		echo "|                                                                                                  |"
+		echo "| Unfortunately, compatibility on other systems, especially macOS (Darwin), cannot be guaranteed.  |"
+		echo "|                                                                                                  |"
+		echo "| You have the option to proceed anyway, but this could create a broken deployment, the script     |"
+		echo "| could behave in unexpected ways, or the deployment might not start at all. You have been warned. |"
+		echo "|--------------------------------------------------------------------------------------------------|"
+		echo ""
+		if ! ask_user "Proceed on this unsupported OS?"; then
+			exit 0
+		fi
+	fi
+
+	# Check for binaries we absolutely need
+	REQUIRED_CMDS=("cat" "curl" "sed" "grep" "tr" "cp")
+	for c in "${REQUIRED_CMDS[@]}"; do
+		if ! command -v "$c" >/dev/null 2>&1; then
+			echo >&2 "------------------------------------------------------"
+			echo >&2 "FATAL ERROR: This system does not have the $c command."
+			echo >&2 "This script cannot proceed without it.                "
+			echo >&2 "------------------------------------------------------"
+			exit 1
+		fi
+	done
+}
+
 # Exit on error
 set -e
 
@@ -759,6 +886,9 @@ if [[ "${RUN_SELF_UPDATE}" == "1" ]]; then
 	self_update
 	exit 0
 fi
+
+# Check the current system for compatibility
+check_compatibility
 
 # Check for LED updates
 LED_UPDATE_CHECK="$(latest_github_tag ubergeek77/Lemmy-Easy-Deploy)"
@@ -902,6 +1032,51 @@ if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 				exit 0
 			fi
 		fi
+	fi
+fi
+
+# If this system has any of the volume names with the live prefix, they probably started the deployment manually
+VOLUME_CHECK=("live_caddy_config" "live_caddy_data" "live_pictrs_data" "live_postgres_data")
+VOLUME_LIST="$(docker volume ls | tr '\n' ' ')"
+DETECTED_VOLUMES=()
+
+for v in "${VOLUME_CHECK[@]}"; do
+	if [[ $VOLUME_LIST == *"$v"* ]]; then
+		DETECTED_VOLUMES+=("$v")
+	fi
+done
+
+if [ ${#DETECTED_VOLUMES[@]} -gt 0 ]; then
+	echo ""
+	echo "|-----------------------------------------------------------------------"
+	echo "|    !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!"
+	echo "|"
+	echo "| There are one or more Docker volumes on this system that might belong"
+	echo "| to a misconfigured Lemmy-Easy-Deploy stack:"
+	echo "|"
+	for d in "${DETECTED_VOLUMES[@]}"; do
+		echo "| * $d"
+	done
+	echo "|"
+	echo "| It is very likely that you navigated to the ./live folder, and manually"
+	echo "| ran '$COMPOSE_CMD up' without specifying a project/stack name with '-p'"
+	echo "|"
+	echo "| If you continue, it is highly likely that the deployment you are about"
+	echo "| to launch will conflict with this misconfigured one."
+	echo "|"
+	echo "| It is highly recommended to do the following:"
+	echo "| * Shut down the stack:"
+	echo "|     cd ./live"
+	echo "|     $COMPOSE_CMD down"
+	echo "|"
+	echo "| * Rename your Docker volumes by following this guidance:"
+	echo "|    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/28#issuecomment-1622698074"
+	echo "|"
+	echo "| * Manage the deployment with ./deploy.sh"
+	echo "|------------------------------------------------------------------------"
+	echo ""
+	if ! ask_user "Do you want to continue anyway?"; then
+		exit 0
 	fi
 fi
 
@@ -1457,11 +1632,23 @@ echo
 echo "Deploy complete!"
 echo "   BE: ${LATEST_BACKEND}"
 echo "   FE: ${LATEST_FRONTEND}"
-echo
+echo ""
+echo "--------------------------------------------------------------------------------------"
+echo "NOTE: Please do not run from the ./live folder directly, or you may cause issues!"
+echo ""
+echo "To shut down your deployment, run:"
+echo "    ./deploy.sh --shutdown"
+echo ""
+echo "To start your deployment back up, run"
+echo "    ./deploy.sh"
+echo ""
+echo "If you must manage your deployment manually, it is critical to supply the stack name:"
+echo "    $COMPOSE_CMD -p \"lemmy-easy-deploy\" [up/down/etc]"
+echo ""
+echo "--------------------------------------------------------------------------------------"
 
 if [[ "${HAS_VOLUME}" == "0" ]]; then
-	echo "============================================="
 	echo "Lemmy admin credentials:"
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
-	echo "============================================="
+	echo "--------------------------------------------------------------------------------------"
 fi

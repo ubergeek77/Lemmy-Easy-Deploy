@@ -7,9 +7,8 @@ Quick Start
 ---
 
 ```
-# Install the *official* version of Docker if you don't already have it
-# Do *not* install the docker.io package on Ubuntu. Follow these instructions instead: https://docs.docker.com/engine/install/ubuntu/
-# For other distros: https://docs.docker.com/engine/install/#server
+# Install Docker if you don't already have it
+# https://docs.docker.com/engine/install/#server
 
 # Clone the repo
 git clone https://github.com/ubergeek77/Lemmy-Easy-Deploy
