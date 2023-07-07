@@ -100,7 +100,7 @@ If you are an advanced user, and need to:
 
 - Specify custom environment variables for a service
 - Override the templates used by Lemmy-Easy-Deploy
-- Run a custom script right before a deployment
+- Run a custom script right before or after a deployment
 
 ... then visit the [Advanced Configuration](ADVANCED_CONFIGURATION.md) page for more details.
 
