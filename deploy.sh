@@ -1337,10 +1337,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "|-------------------------------------------------------------------|"
 		echo
 	fi
-	# Show the user an initial install message if they didn't have a previous version
+	# Change prompt depending on the situation
 	PROMPT_STRING="Would you like to deploy this update?"
 	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
 		PROMPT_STRING="Ready to deploy?"
+	elif [[ "${CURRENT_BACKEND}" == "${LATEST_BACKEND}" ]] && [[ "${CURRENT_FRONTEND}" == "${LATEST_FRONTEND}" ]]; then
+		PROMPT_STRING="Re-deploy these versions?"
 	fi
 	if ! ask_user "${PROMPT_STRING:?}"; then
 		exit 0
