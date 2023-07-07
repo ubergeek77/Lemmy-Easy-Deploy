@@ -53,7 +53,7 @@ After you've deployed Lemmy via Lemmy-Easy-Deploy, simply run `./deploy.sh` agai
 
 Lemmy-Easy-Deploy will notify you if a Lemmy-Easy-Deploy update is available. I regularly update Lemmy-Easy-Deploy based on feedback to address common issues people have.
 
-Usage & Configuration
+Usage
 ---
 
 ```
@@ -83,9 +83,10 @@ This deployment is not "locked into" Lemmy-Easy-Deploy in any way. You can use m
 
 The `.env` files in `./live` contain ***important passwords/secrets.*** *Do not delete these!*
 
+Configuration
 ---
 
-Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check `config.env.example` for detailed info about what each configuration option does.
+Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check `[config.env.example](config.env.example)` for detailed info about what each configuration option does.
 
 If you want to use a **custom Postgres configuration**, as mentioned by the [database tweaks section of the Lemmy documentation](https://join-lemmy.org/docs/administration/install_docker.html#database-tweaks), place your custom configuration at this path:
 

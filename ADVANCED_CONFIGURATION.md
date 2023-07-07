@@ -5,7 +5,7 @@ Advanced Configuration
 
 ### Custom Environment Variables
 
-If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files. If one of thoese files exist, they will be passed to each respective service as an `env_file`. This allows you to specify any environment variables you want for any service. These files follow the [Docker environment file syntax](https://docs.docker.com/compose/environment-variables/env-file/) (basically just `VAR=VAL`).
+If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files. If one of those files exist, they will be passed to each respective service as an `env_file`. This allows you to specify any environment variables you want for any service. These files follow the [Docker environment file syntax](https://docs.docker.com/compose/environment-variables/env-file/) (basically just `VAR=VAL`).
 
 ```
 # Will be loaded by the 'proxy` service (Caddy)
