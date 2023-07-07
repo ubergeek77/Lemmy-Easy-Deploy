@@ -1604,7 +1604,7 @@ if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
 		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
-		-e "s|{{LEMMY_NOREPLY_DISPLAY}}|${LEMMY_NOREPLY_DISPLAY}|g" \
+		-e "s|{{SMTP_NOREPLY_DISPLAY}}|${SMTP_NOREPLY_DISPLAY}|g" \
 		-e "s|{{SMTP_TLS_TYPE}}|${SMTP_TLS_TYPE}|g" \
 		-e "s|{{SMTP_LOGIN}}|${SMTP_LOGIN}|g" \
 		-e "s|{{SMTP_PASSWORD}}|${SMTP_PASSWORD}|g" \
