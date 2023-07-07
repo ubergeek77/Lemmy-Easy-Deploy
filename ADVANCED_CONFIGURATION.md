@@ -3,6 +3,8 @@ Advanced Configuration
 
 ***NOTE:*** The customization features of Lemmy-Easy-Deploy **are provided for convenience and are not supported**. In other words, these are for advanced users only, and have great potential to break your deployment if you don't know what you're doing. ***I can't help you with issues related to these customization options, do not use them if you do not know what you are doing***. Please, do not file issues related to using these features.
 
+In order for any of the below configuration options to be used/executed, a redeployment must occur. A redeployment will happen automatically upon updates with `./deploy.sh`, but if no updates are available, you must use `./deploy.sh -f` to redeploy them (don't forget to use `-l` or `-w` if you want to maintain a custom `rc` version, or the latest stable version will be deployed instead).
+
 ### Custom Environment Variables
 
 If you need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files. If one of those files exist, they will be passed to each respective service as an `env_file`. This allows you to specify any environment variables you want for any service. These files follow the [Docker environment file syntax](https://docs.docker.com/compose/environment-variables/env-file/) (basically just `VAR=VAL`).
@@ -17,7 +19,7 @@ If you need to specify a certain environment variable for a given service in thi
 # Will be loaded by the 'lemmy-ui' service
 ./custom/customLemmy-ui.env
 
-# Will be loaded by the 'pictrs' ervice
+# Will be loaded by the 'pictrs' service
 ./custom/customPictrs.env
 
 # Will be loaded by the 'postgres' service
