@@ -86,7 +86,7 @@ The `.env` files in `./live` contain ***important passwords/secrets.*** *Do not 
 Configuration
 ---
 
-Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check `[config.env.example](config.env.example)` for detailed info about what each configuration option does.
+Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check [`config.env.example`](config.env.example) for detailed info about what each configuration option does.
 
 If you want to use a **custom Postgres configuration**, as mentioned by the [database tweaks section of the Lemmy documentation](https://join-lemmy.org/docs/administration/install_docker.html#database-tweaks), place your custom configuration at this path:
 
