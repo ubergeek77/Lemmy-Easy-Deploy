@@ -1633,6 +1633,13 @@ fi
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
 
+# Run the user's post-deploy script if it exists
+# Run in a subshell so there's no environment/directory weirdness
+if [[ -x ./custom/post-deploy.sh ]]; then
+	echo "--> Running custom post-deploy script"
+	(./custom/post-deploy.sh)
+fi
+
 # Do health checks
 # Give it 2 seconds to start up
 echo ""

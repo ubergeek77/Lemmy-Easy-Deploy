@@ -48,17 +48,21 @@ The names are self-explanatory. If any of these files exist, that respective fil
 
 ***NOTE:*** Over time, the default templates may need to be updated as new versions of Lemmy come out. For example, the `pictrs` version may be updated, new environment variables specified, or API routes shifted. If you use a custom template, you will not automatically receive updates to these things, as your deployment will use your static template instead of my default ones. **You are responsible for keeping your custom template up to date.**
 
-### Pre-Deployment Script
+### Pre/Post Deployment Scripts
 
-Lemmy-Easy-Deploy will run a script for you if you have one defined, and executable, at:
+Lemmy-Easy-Deploy can run pre and post-deployment scripts for you if you have them written to:
 
 ```
 ./custom/pre-deploy.sh
+./custom/post-deploy.sh
 ```
 
-This is a useful place to do things such as:
+They will be executed just before the Docker Compose deployment is brought up, and right after it's brought up, respectively.
+
+These can be useful to do things such as:
 
 - Create/Generate files and copy them to `./live`
 - Programatically modify files in `./live` right before a deployment
+- Manually execute into running services to run commands
 
 This is a powerful feature, but please be careful when using it. It is your responsibility to not break your deployment if you use this feature.
