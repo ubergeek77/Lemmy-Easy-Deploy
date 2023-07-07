@@ -1612,6 +1612,13 @@ fi
 # Delete the email template if it exists
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
+# Run the user's pre-deploy script if it exists
+# Run in a subshell so there's no environment/directory weirdness
+if [[ -x ./custom/pre-deploy.sh ]]; then
+	echo "--> Running custom pre-deploy script"
+	(./custom/pre-deploy.sh)
+fi
+
 # Set up the new deployment
 # Only run down if we can assume the user has a deployment already
 (
