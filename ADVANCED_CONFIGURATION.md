@@ -1,7 +1,7 @@
 Advanced Configuration
 ---
 
-***NOTE:*** The customization features of Lemmy-Easy-Deploy **are provided for convenience and are not supported**. In other words, these are for advanced users only, and have great potential to break your deployment if you don't know what you're doing. ***I can't help you with issues related to these customization options, do not use them if you do not know what you are doing***. Please, do not file issues related to using these features.
+***NOTE:*** The customization features of Lemmy-Easy-Deploy **are provided for convenience and are not supported**. In other words, these are for advanced users only, and have great potential to break your deployment if you don't know what you're doing. ***I can't help you with issues related to these customization options, do not use them if you do not know what you are doing***. Please, do not file issues related to using these features (unless something is obviously broken).
 
 In order for any of the below configuration options to be used/executed, a redeployment must occur. A redeployment will happen automatically upon updates with `./deploy.sh`, but if no updates are available, you must use `./deploy.sh -f` to redeploy them (don't forget to use `-l` or `-w` if you want to maintain a custom `rc` version, or the latest stable version will be deployed instead).
 
