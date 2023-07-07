@@ -53,7 +53,7 @@ After you've deployed Lemmy via Lemmy-Easy-Deploy, simply run `./deploy.sh` agai
 
 Lemmy-Easy-Deploy will notify you if a Lemmy-Easy-Deploy update is available. I regularly update Lemmy-Easy-Deploy based on feedback to address common issues people have.
 
-Usage & Configuration
+Usage
 ---
 
 ```
@@ -83,31 +83,10 @@ This deployment is not "locked into" Lemmy-Easy-Deploy in any way. You can use m
 
 The `.env` files in `./live` contain ***important passwords/secrets.*** *Do not delete these!*
 
+Configuration
 ---
 
-Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check `config.env.example` for detailed info about what each configuration option does.
-
-If you are an advanced user, and need to specify a certain environment variable for a given service in this deployment, you can define them in any of the below files. If one of thoese files exist, they will be passed to each respective service as an `env_file`. This allows you to specify any environment variables you want for any service. These files follow the [Docker environment file syntax](https://docs.docker.com/compose/environment-variables/env-file/) (basically just `VAR=VAL`).
-
-```
-# Will be loaded by the 'proxy` service (Caddy)
-./custom/customCaddy.env
-
-# Will be loaded by the 'lemmy' service
-./custom/customLemmy.env
-
-# Will be loaded by the 'lemmy-ui' service
-./custom/customLemmy-ui.env
-
-# Will be loaded by the 'pictrs' ervice
-./custom/customPictrs.env
-
-# Will be loaded by the 'postgres' service
-./custom/customPostgres.env
-
-# Will be loaded by the 'postfix' service
-./custom/customPostfix.env
-```
+Configuration of Lemmy-Easy-Deploy is done via `config.env`. Check [`config.env.example`](config.env.example) for detailed info about what each configuration option does.
 
 If you want to use a **custom Postgres configuration**, as mentioned by the [database tweaks section of the Lemmy documentation](https://join-lemmy.org/docs/administration/install_docker.html#database-tweaks), place your custom configuration at this path:
 
@@ -115,14 +94,22 @@ If you want to use a **custom Postgres configuration**, as mentioned by the [dat
 ./custom/customPostgresql.conf
 ```
 
-It will be passed to the Postgres container and override the default config.
+This file will be passed to the Postgres container and override the default config.
+
+If you are an advanced user, and need to:
+
+- Specify custom environment variables for a service
+- Override the templates used by Lemmy-Easy-Deploy
+- Run a custom script right before or after a deployment
+
+... then visit the [Advanced Configuration](ADVANCED_CONFIGURATION.md) page for more details.
 
 **If you make any changes to `config.env` or any of the custom files as listed above, redeploy your instance with `./deploy.sh -f` to apply the changes.**
 
 FAQ & Troubleshooting
 ---
 
-[Please see the troubleshooting page for answers to common questions and solutions to common problems.](TROUBLESHOOTING.md)
+Please see the [FAQ & Troubleshooting](TROUBLESHOOTING.md) page for answers to common questions and solutions to common problems.
 
 Credits
 ---

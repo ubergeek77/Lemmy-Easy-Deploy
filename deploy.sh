@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.2.6"
+LED_CURRENT_VERSION="1.2.7"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -446,6 +446,10 @@ self_update() {
 		print_update_error
 		exit 1
 	fi
+	if ! git fetch --tags --force; then
+		print_update_error
+		exit 1
+	fi
 	if ! git checkout ${LED_UPDATE_CHECK}; then
 		print_update_error
 		exit 1
@@ -632,7 +636,7 @@ shutdown_deployment() {
 # and modify the docker-compose.yml to use them
 install_custom_env() {
 	if [[ -f ./custom/customCaddy.env ]]; then
-		echo "--> Found customCaddy.env"
+		echo "--> Found customCaddy.env; passing custom environment variables to 'proxy'"
 		sed -i -e 's|{{ CADDY_EXTRA_ENV }}|./customCaddy.env|g' ./live/docker-compose.yml
 		cp ./custom/customCaddy.env ./live
 	else
@@ -640,7 +644,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customLemmy.env ]]; then
-		echo "--> Found customLemmy.env"
+		echo "--> Found customLemmy.env; passing custom environment variables to 'lemmy'"
 		sed -i -e 's|{{ LEMMY_EXTRA_ENV }}|./customLemmy.env|g' ./live/docker-compose.yml
 		cp ./custom/customLemmy.env ./live
 
@@ -670,7 +674,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customLemmy-ui.env ]]; then
-		echo "--> Found customLemmy-ui.env"
+		echo "--> Found customLemmy-ui.env; passing custom environment variables to 'lemmy-ui'"
 		sed -i -e 's|{{ LEMMY_UI_EXTRA_ENV }}|./customLemmy-ui.env|g' ./live/docker-compose.yml
 		cp ./custom/customLemmy-ui.env ./live
 	else
@@ -678,7 +682,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customPictrs.env ]]; then
-		echo "--> Found customPictrs.env"
+		echo "--> Found customPictrs.env; passing custom environment variables to 'pictrs'"
 		sed -i -e 's|{{ PICTRS_EXTRA_ENV }}|./customPictrs.env|g' ./live/docker-compose.yml
 		cp ./custom/customPictrs.env ./live
 	else
@@ -686,7 +690,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customPostgres.env ]]; then
-		echo "--> Found customPostgres.env"
+		echo "--> Found customPostgres.env; passing custom environment variables to 'postgres'"
 		sed -i -e 's|{{ POSTGRES_EXTRA_ENV }}|./customPostgres.env|g' ./live/docker-compose.yml
 		cp ./custom/customPostgres.env ./live
 	else
@@ -694,7 +698,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customPostfix.env ]]; then
-		echo "--> Found customPostfix.env"
+		echo "--> Found customPostfix.env; passing custom environment variables to 'postfix'"
 		sed -i -e 's|{{ POSTFIX_EXTRA_ENV }}|./customPostfix.env|g' ./live/docker-compose.yml
 		cp ./custom/customPostfix.env ./live
 	else
@@ -702,7 +706,7 @@ install_custom_env() {
 	fi
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
-		echo "--> Found customPostgresql.conf"
+		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
 		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
@@ -1333,10 +1337,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "|-------------------------------------------------------------------|"
 		echo
 	fi
-	# Show the user an initial install message if they didn't have a previous version
+	# Change prompt depending on the situation
 	PROMPT_STRING="Would you like to deploy this update?"
 	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
 		PROMPT_STRING="Ready to deploy?"
+	elif [[ "${CURRENT_BACKEND}" == "${LATEST_BACKEND}" ]] && [[ "${CURRENT_FRONTEND}" == "${LATEST_FRONTEND}" ]]; then
+		PROMPT_STRING="Re-deploy these versions?"
 	fi
 	if ! ask_user "${PROMPT_STRING:?}"; then
 		exit 0
@@ -1349,6 +1355,52 @@ else
 	cd ./live
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up --no-recreate -d
 	exit 0
+fi
+
+# Define the template locations
+CADDY_DOCKERFILE_TEMPLATE="./templates/Caddy-Dockerfile.template"
+CADDYFILE_TEMPLATE="./templates/Caddyfile.template"
+CLOUDFLARE_SNIP="./templates/cloudflare.snip"
+COMPOSE_EMAIL_SNIP="./templates/compose-email.snip"
+COMPOSE_EMAIL_VOLUMES_SNIP="./templates/compose-email-volumes.snip"
+COMPOSE_TEMPLATE="./templates/docker-compose.yml.template"
+LEMMY_EMAIL_SNIP="./templates/lemmy-email.snip"
+LEMMY_HJSON_TEMPLATE="./templates/lemmy.hjson.template"
+
+# Load custom templates if they exist
+if [[ -d ./custom ]]; then
+	if [[ -f ./custom/Caddy-Dockerfile.template ]]; then
+		echo "--> Using custom 'Caddy-Dockerfile.template'"
+		CADDY_DOCKERFILE_TEMPLATE="./custom/Caddy-Dockerfile.template"
+	fi
+	if [[ -f ./custom/Caddyfile.template ]]; then
+		echo "--> Using custom 'Caddyfile.template'"
+		CADDYFILE_TEMPLATE="./custom/Caddyfile.template"
+	fi
+	if [[ -f ./custom/cloudflare.snip ]]; then
+		echo "--> Using custom 'cloudflare.snip'"
+		CLOUDFLARE_SNIP="./custom/cloudflare.snip"
+	fi
+	if [[ -f ./custom/compose-email.snip ]]; then
+		echo "--> Using custom 'compose-email.snip'"
+		COMPOSE_EMAIL_SNIP="./custom/compose-email.snip"
+	fi
+	if [[ -f ./custom/compose-email-volumes.snip ]]; then
+		echo "--> Using custom 'compose-email-volumes.snip'"
+		COMPOSE_EMAIL_VOLUMES_SNIP="./custom/compose-email-volumes.snip"
+	fi
+	if [[ -f ./custom/docker-compose.yml.template ]]; then
+		echo "--> Using custom 'docker-compose.yml.template'"
+		COMPOSE_TEMPLATE="./custom/docker-compose.yml.template"
+	fi
+	if [[ -f ./custom/lemmy-email.snip ]]; then
+		echo "--> Using custom 'lemmy-email.snip'"
+		LEMMY_EMAIL_SNIP="./custom/lemmy-email.snip"
+	fi
+	if [[ -f ./custom/lemmy.hjson.template ]]; then
+		echo "--> Using custom 'lemmy.hjson.template'"
+		LEMMY_HJSON_TEMPLATE="./custom/lemmy.hjson.template"
+	fi
 fi
 
 # Make sure the live dir exists
@@ -1502,15 +1554,15 @@ source ./live/lemmy.env
 # We will need to build Caddy if Cloudflare is needed, so copy that to the live directory as well
 # Otherwise, use the default config
 if [[ "${CADDY_DISABLE_TLS}" == "true" ]] || [[ "${CADDY_DISABLE_TLS}" == "1" ]]; then
-	sed -e 's|{$LEMMY_HOSTNAME}|http://{$LEMMY_HOSTNAME}|g' ./templates/Caddyfile.template >./live/caddy/Caddyfile
+	sed -e 's|{$LEMMY_HOSTNAME}|http://{$LEMMY_HOSTNAME}|g' ${CADDYFILE_TEMPLATE:?} >./live/caddy/Caddyfile
 elif [[ -n "${CF_API_TOKEN}" ]]; then
-	cat ./templates/cloudflare.snip >./live/caddy/Caddyfile
-	cat ./templates/Caddy-Dockerfile.template >./live/caddy/Dockerfile
+	cat ${CLOUDFLARE_SNIP:?} >./live/caddy/Caddyfile
+	cat ${CADDY_DOCKERFILE_TEMPLATE:?} >./live/caddy/Dockerfile
 	echo "CF_API_TOKEN=${CF_API_TOKEN}" >>./live/caddy.env
-	sed -e '/import caddy-common/a\\timport cloudflare_https' ./templates/Caddyfile.template >>./live/caddy/Caddyfile
+	sed -e '/import caddy-common/a\\timport cloudflare_https' ${CADDYFILE_TEMPLATE:?} >>./live/caddy/Caddyfile
 	COMPOSE_CADDY_IMAGE="build: ./caddy"
 else
-	cat ./templates/Caddyfile.template >./live/caddy/Caddyfile
+	cat ${CADDYFILE_TEMPLATE:?} >./live/caddy/Caddyfile
 fi
 
 # Generate docker-compose.yml
@@ -1519,14 +1571,14 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_UI_IMAGE}}|${COMPOSE_LEMMY_UI_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
-	./templates/docker-compose.yml.template >./live/docker-compose.yml
+	${COMPOSE_TEMPLATE:?} >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
 # Also override ENABLE_EMAIL to true
 if [[ "${ENABLE_POSTFIX}" == "1" ]] || [[ "${ENABLE_POSTFIX}" == "true" ]]; then
 	ENABLE_EMAIL="true"
-	sed -i -e '/{{EMAIL_SERVICE}}/r ./templates/compose-email.snip' ./live/docker-compose.yml
-	sed -i -e '/{{EMAIL_VOLUMES}}/r ./templates/compose-email-volumes.snip' ./live/docker-compose.yml
+	sed -i -e "/{{EMAIL_SERVICE}}/r ${COMPOSE_EMAIL_SNIP:?}" ./live/docker-compose.yml
+	sed -i -e "/{{EMAIL_VOLUMES}}/r ${COMPOSE_EMAIL_VOLUMES_SNIP:?}" ./live/docker-compose.yml
 fi
 
 # Delete the email templates if they exist
@@ -1544,11 +1596,11 @@ sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	-e "s|{{SETUP_ADMIN_PASS}}|${SETUP_ADMIN_PASS:?}|g" \
 	-e "s|{{SETUP_ADMIN_USER}}|${SETUP_ADMIN_USER:?}|g" \
 	-e "s|{{SETUP_SITE_NAME}}|${SETUP_SITE_NAME:?}|g" \
-	-e "s|{{LEMMY_TLS_ENABLED}}|${LEMMY_TLS_ENABLED:?}|g" ./templates/lemmy.hjson.template >./live/lemmy.hjson
+	-e "s|{{LEMMY_TLS_ENABLED}}|${LEMMY_TLS_ENABLED:?}|g" ${LEMMY_HJSON_TEMPLATE:?} >./live/lemmy.hjson
 
 # If ENABLE_EMAIL is true, add the email block to the lemmy config
 if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
-	sed -i -e '/{{EMAIL_BLOCK}}/r ./templates/lemmy-email.snip' ./live/lemmy.hjson
+	sed -i -e "/{{EMAIL_BLOCK}}/r ${LEMMY_EMAIL_SNIP:?}" ./live/lemmy.hjson
 
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
 		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
@@ -1562,6 +1614,13 @@ fi
 # Delete the email template if it exists
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
+# Run the user's pre-deploy script if it exists
+# Run in a subshell so there's no environment/directory weirdness
+if [[ -x ./custom/pre-deploy.sh ]]; then
+	echo "--> Running custom pre-deploy script"
+	(./custom/pre-deploy.sh)
+fi
+
 # Set up the new deployment
 # Only run down if we can assume the user has a deployment already
 (
@@ -1573,6 +1632,13 @@ sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 	fi
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
+
+# Run the user's post-deploy script if it exists
+# Run in a subshell so there's no environment/directory weirdness
+if [[ -x ./custom/post-deploy.sh ]]; then
+	echo "--> Running custom post-deploy script"
+	(./custom/post-deploy.sh)
+fi
 
 # Do health checks
 # Give it 2 seconds to start up
