@@ -985,12 +985,12 @@ load_env
 
 # Yell at the user if they didn't follow instructions, again
 if [[ -z "$LEMMY_HOSTNAME" ]] || [[ "$LEMMY_HOSTNAME" == "example.com" ]]; then
-	echo >&2 "ERROR: You did not set your hostname in hostname.env! Do it like this:"
+	echo >&2 "ERROR: You did not set your hostname in config.env! Do it like this:"
 	echo >&2 "LEMMY_HOSTNAME=example.com"
 	exit 1
 fi
 if [[ $LEMMY_HOSTNAME =~ ^https?: ]]; then
-	echo >&2 "ERROR: Don't put http/https in hostname.env! Do it like this:"
+	echo >&2 "ERROR: Don't put http/https in config.env! Do it like this:"
 	echo >&2 "LEMMY_HOSTNAME=example.com"
 	exit 1
 fi
