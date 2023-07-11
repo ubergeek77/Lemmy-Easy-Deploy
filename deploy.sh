@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.2.7"
+LED_CURRENT_VERSION="1.2.8"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
