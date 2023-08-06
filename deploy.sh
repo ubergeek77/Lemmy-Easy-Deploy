@@ -707,7 +707,7 @@ install_custom_env() {
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
 		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
-		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
+		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/var/lib/postgresql/data/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
 		sed -i '/{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
