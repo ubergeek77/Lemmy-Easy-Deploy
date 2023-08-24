@@ -48,7 +48,7 @@ services:
     logging: *default-logging
 
   pictrs:
-    image: asonix/pictrs:0.4.0
+    image: asonix/pictrs:0.4.2
     user: 991:991
     environment:
       - PICTRS__MEDIA__VIDEO_CODEC=vp9
