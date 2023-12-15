@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.3.1"
+LED_CURRENT_VERSION="1.3.2"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -1302,6 +1302,14 @@ if [[ "${FORCE_DEPLOY}" != "1" ]]; then
 		echo "   FE: ${CURRENT_FRONTEND} --> ${LATEST_FRONTEND}"
 		echo
 	fi
+fi
+
+# Warn the user to check their file before deploying
+if [[ -f ./custom/docker-compose.yml.template ]]; then
+	echo ""
+	echo "NOTE: You are currently overriding the built-in docker-compose.yml with your own template."
+	echo "      Please remember to incorporate any new changes into your docker-compose.yml.template before deploying!"
+	echo ""
 fi
 
 # Ask the user if they want to update
