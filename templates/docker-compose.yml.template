@@ -42,13 +42,15 @@ services:
     environment:
       - LEMMY_UI_LEMMY_INTERNAL_HOST=lemmy:8536
       - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
+    volumes:
+      - ./lemmy-ui-themes:/app/extra_themes
     depends_on:
       - lemmy
     restart: always
     logging: *default-logging
 
   pictrs:
-    image: asonix/pictrs:0.4.0
+    image: asonix/pictrs:0.4.3
     user: 991:991
     environment:
       - PICTRS__MEDIA__VIDEO_CODEC=vp9

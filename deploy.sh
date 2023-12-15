@@ -507,11 +507,11 @@ latest_github_tag() {
 	fi
 	RESULT=$(echo "${RESPONSE}" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-	# If no result, check the latest tag that doesn't contain the words beta or rc
+	# If no result, check the latest tag that doesn't contain the words beta, alpha, or rc
 	if [[ -z "${RESULT}" ]]; then
 		RESPONSE="$(curl -s ${CURL_ARGS} https://api.github.com/repos/$1/git/refs/tags)"
 		while IFS= read -r line; do
-			if [[ "${line,,}" != *beta* && "${line,,}" != *rc* ]]; then
+			if [[ "${line,,}" != *beta* && "${line,,}" != *alpha* && "${line,,}" != *rc* ]]; then
 				RESULT="$(echo ${line} | cut -d'/' -f3 | tr -d '",')"
 				break
 			fi
