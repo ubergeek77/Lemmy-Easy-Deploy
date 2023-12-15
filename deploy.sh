@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.3.1"
+LED_CURRENT_VERSION="1.3.2"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -507,11 +507,11 @@ latest_github_tag() {
 	fi
 	RESULT=$(echo "${RESPONSE}" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-	# If no result, check the latest tag that doesn't contain the words beta or rc
+	# If no result, check the latest tag that doesn't contain the words beta, alpha, or rc
 	if [[ -z "${RESULT}" ]]; then
 		RESPONSE="$(curl -s ${CURL_ARGS} https://api.github.com/repos/$1/git/refs/tags)"
 		while IFS= read -r line; do
-			if [[ "${line,,}" != *beta* && "${line,,}" != *rc* ]]; then
+			if [[ "${line,,}" != *beta* && "${line,,}" != *alpha* && "${line,,}" != *rc* ]]; then
 				RESULT="$(echo ${line} | cut -d'/' -f3 | tr -d '",')"
 				break
 			fi
@@ -1302,6 +1302,14 @@ if [[ "${FORCE_DEPLOY}" != "1" ]]; then
 		echo "   FE: ${CURRENT_FRONTEND} --> ${LATEST_FRONTEND}"
 		echo
 	fi
+fi
+
+# Warn the user to check their file before deploying
+if [[ -f ./custom/docker-compose.yml.template ]]; then
+	echo ""
+	echo "NOTE: You are currently overriding the built-in docker-compose.yml with your own template."
+	echo "      Please remember to incorporate any new changes into your docker-compose.yml.template before deploying!"
+	echo ""
 fi
 
 # Ask the user if they want to update
