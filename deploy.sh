@@ -1669,10 +1669,10 @@ if [[ -x ./custom/post-deploy.sh ]]; then
 fi
 
 # Do health checks
-# Give it 2 seconds to start up
+# Give it 10 seconds to start up
 echo ""
 echo "Checking deployment status..."
-sleep 2
+sleep 10
 
 # Services every deployment should have
 declare -a health_checks=("proxy" "lemmy" "lemmy-ui" "pictrs" "postgres")
@@ -1686,9 +1686,22 @@ for service in "${health_checks[@]}"; do
 	printf "Checking ${service}... "
 	SERVICE_STATE="$(get_service_status $service)"
 	if [[ "${SERVICE_STATE}" != "running" ]]; then
-		# Give it a little bit...
-		printf "${SERVICE_STATE} ... "
-		sleep 5
+		# End the previous line
+		echo
+		echo "Service ${service} not immediately ready"
+		echo "Waiting up to 5 minutes for ${service} to become healthy..."
+		# Give it at least 5 minutes
+		retry=0
+		while [ $retry -lt 60 ]; do
+			sleep 5
+			SERVICE_STATE="$(get_service_status $service)"
+			echo "Service ${service} is ${SERVICE_STATE} ... "
+			if [[ "${SERVICE_STATE}" != "running" ]]; then
+				break
+			fi
+			((retry++))
+		done
+		
 		SERVICE_STATE="$(get_service_status $service)"
 		if [[ "${SERVICE_STATE}" != "running" ]]; then
 			echo "FAILED"
