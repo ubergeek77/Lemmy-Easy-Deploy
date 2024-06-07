@@ -1696,7 +1696,7 @@ for service in "${health_checks[@]}"; do
 			sleep 5
 			SERVICE_STATE="$(get_service_status $service)"
 			echo "Service ${service} is ${SERVICE_STATE} ... "
-			if [[ "${SERVICE_STATE}" != "running" ]]; then
+			if [[ "${SERVICE_STATE}" == "running" ]]; then
 				break
 			fi
 			((retry++))
