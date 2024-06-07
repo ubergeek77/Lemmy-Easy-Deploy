@@ -1695,12 +1695,12 @@ for service in "${health_checks[@]}"; do
 		retry=0
 		while [ $retry -lt 60 ]; do
 			sleep 5
-			SERVICE_STATE="$(get_service_status $service)"
-			echo "Service '${service}' is ${SERVICE_STATE} ... "
+			SERVICE_STATE="$(get_service_status "$service")"
+			echo "Attempt $retry: Service '${service}' is ${SERVICE_STATE} ..."
 			if [[ "${SERVICE_STATE}" == "running" ]]; then
 				break
 			fi
-			((retry++))
+			retry=$((retry + 1))
 		done
 		set +x
 		
