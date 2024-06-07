@@ -1675,7 +1675,7 @@ echo "Checking deployment status..."
 sleep 10
 
 # Services every deployment should have
-declare -a health_checks=("proxy" "lemmy" "lemmy-ui" "pictrs" "postgres")
+declare -a health_checks=("proxy" "lemmy-ui" "postgres" "pictrs" "lemmy")
 
 # Add postfix if the user configured that
 if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
