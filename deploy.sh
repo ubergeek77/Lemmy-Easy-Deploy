@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.3.3"
+LED_CURRENT_VERSION="1.3.4"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -118,6 +118,7 @@ load_env() {
 	SMTP_TLS_TYPE="${SMTP_TLS_TYPE:-none}"
 	ENABLE_POSTFIX="${ENABLE_POSTFIX:-false}"
 	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
+	POSTGRES_SHM_SIZE="${POSTGRES_SHM_SIZE:-64m}"
 
 }
 
@@ -212,6 +213,7 @@ diag_info() {
 		echo "         SMTP_PORT: ${SMTP_PORT}"
 		echo "    ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
 		echo "POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
+		echo "POSTGRES_SHM_SIZE: ${POSTGRES_SHM_SIZE}"
 	fi
 	echo ""
 	echo "==== Generated Files ===="
@@ -707,6 +709,11 @@ install_custom_env() {
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
 		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
+		if [[ "${POSTGRES_SHM_SIZE}" == "64m" ]]; then
+			echo "     > WARNING: You have not changed the SHM size for the Postgres container from the default value of '64m'"
+			echo "     > The 'shared_buffers' key in 'customPostgresql.conf' must match the SHM size of the Docker container."
+			echo "     > Please do not forget to change it! If you are ok with the default value of '64m', you can ignore this warning."
+		fi
 		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/var/lib/postgresql/data/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
@@ -1319,13 +1326,15 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "--------------------------------------------------------------------|"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|                                                                   |"
-		echo "| Updates to the Lemmy Backend perform a database migration!        |"
+		echo "|    Updates to the Lemmy Backend perform a database migration!     |"
 		echo "|                                                                   |"
-		echo "| This process is **generally safe and does not risk data loss.**   |"
+		echo "|      This is generally safe, but Lemmy bugs may cause issues.     |"
 		echo "|                                                                   |"
-		echo "| However, if you update, but run into a new bug/issue,             |"
-		echo "| you will NOT be able to roll back to the previous version!        |"
-		echo "| You will be stuck with the bug/issue until an update is released. |"
+		echo "|   It is generally recommended to wait a day or two after a major  |"
+		echo "|    Lemmy update, to allow time for major bugs to be reported.     |"
+		echo "|                                                                   |"
+		echo "| If you update, and run into a new bug/issue in Lemmy, you will    |"
+		echo "| NOT be able to roll back, unless you restore a database backup!   |"
 		echo "|                                                                   |"
 		echo "|              LEMMY BACKEND UPDATES ARE ONE-WAY ONLY               |"
 		echo "|                                                                   |"
@@ -1338,8 +1347,6 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "|                                                                   |"
 		echo "| The most important Volume to back up is named:                    |"
 		echo "|       lemmy-easy-deploy_postgres_data                             |"
-		echo "|                                                                   |"
-		echo "|    (Lemmy-Easy-Deploy may automate this process in the future)    |"
 		echo "|                                                                   |"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|-------------------------------------------------------------------|"
@@ -1579,6 +1586,7 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_UI_IMAGE}}|${COMPOSE_LEMMY_UI_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
+	-e "s|{{POSTGRES_SHM_SIZE}}|${POSTGRES_SHM_SIZE:?}|g" \
 	${COMPOSE_TEMPLATE:?} >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
@@ -1609,6 +1617,15 @@ sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 # If ENABLE_EMAIL is true, add the email block to the lemmy config
 if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 	sed -i -e "/{{EMAIL_BLOCK}}/r ${LEMMY_EMAIL_SNIP:?}" ./live/lemmy.hjson
+
+	# If SMTP_LOGIN or SMTP_PASSWORD are blank, delete them from the config
+	if [[ "${SMTP_LOGIN}" == "" ]]; then
+		sed -i '/{{SMTP_LOGIN}}/d' ./live/lemmy.hjson
+	fi
+
+	if [[ "${SMTP_PASSWORD}" == "" ]]; then
+		sed -i '/{{SMTP_PASSWORD}}/d' ./live/lemmy.hjson
+	fi
 
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
 		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
