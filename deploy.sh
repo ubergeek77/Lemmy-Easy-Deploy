@@ -1313,10 +1313,13 @@ fi
 
 # Warn the user to check their file before deploying
 if [[ -f ./custom/docker-compose.yml.template ]]; then
+	echo "---------------------------------------------------------------------------------------------------------------"
+	echo "WARNING: You are currently overriding the built-in docker-compose.yml with your own template."
 	echo ""
-	echo "NOTE: You are currently overriding the built-in docker-compose.yml with your own template."
-	echo "      Please remember to incorporate any new changes into your docker-compose.yml.template before deploying!"
-	echo ""
+	echo "         Your custom docker-compose.yml.template must closely match the example provided by Lemmy-Easy-Deploy."
+	echo "         The deployment usually has significant changes after major Lemmy updates."
+	echo "         Please remember to incorporate any changes into your docker-compose.yml.template before deploying!"
+	echo "---------------------------------------------------------------------------------------------------------------"
 fi
 
 # Ask the user if they want to update
