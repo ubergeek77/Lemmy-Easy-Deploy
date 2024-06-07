@@ -1688,19 +1688,21 @@ for service in "${health_checks[@]}"; do
 	if [[ "${SERVICE_STATE}" != "running" ]]; then
 		# End the previous line
 		echo
-		echo "Service ${service} not immediately ready"
-		echo "Waiting up to 5 minutes for ${service} to become healthy..."
+		echo "Service '${service}' not immediately ready"
+		echo "Waiting up to 5 minutes for '${service}' to become healthy..."
 		# Give it at least 5 minutes
+		set -x
 		retry=0
 		while [ $retry -lt 60 ]; do
 			sleep 5
 			SERVICE_STATE="$(get_service_status $service)"
-			echo "Service ${service} is ${SERVICE_STATE} ... "
+			echo "Service '${service}' is ${SERVICE_STATE} ... "
 			if [[ "${SERVICE_STATE}" == "running" ]]; then
 				break
 			fi
 			((retry++))
 		done
+		set +x
 		
 		SERVICE_STATE="$(get_service_status $service)"
 		if [[ "${SERVICE_STATE}" != "running" ]]; then
