@@ -1200,6 +1200,11 @@ echo
 LATEST_BACKEND="${BACKEND_TAG_OVERRIDE}"
 if [[ -z "${LATEST_BACKEND}" ]]; then
 	LATEST_BACKEND="$(latest_github_tag LemmyNet/lemmy)"
+	if [[ "${LATEST_BACKEND}" != "0.19.3" ]]; then
+		echo "WARN: 0.19.4+ is not supported at this time. 0.19.3 will be used instead."
+		echo "For more information: https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/91"
+		LATEST_BACKEND="0.19.3"
+	fi
 fi
 
 if [[ "${CURRENT_BACKEND}" != "0.0.0" ]]; then
@@ -1252,6 +1257,12 @@ fi
 LATEST_FRONTEND="${FRONTEND_TAG_OVERRIDE}"
 if [[ "${LATEST_FRONTEND}" == "" ]]; then
 	LATEST_FRONTEND="$(latest_github_tag LemmyNet/lemmy-ui)"
+	if [[ "${LATEST_FRONTEND}" != "0.19.3" ]]; then
+		echo "WARN: 0.19.4+ is not supported at this time. 0.19.3 will be used instead."
+		echo "For more information: https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/91"
+		LATEST_FRONTEND="0.19.3"
+	fi
+	
 fi
 
 if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]]; then
