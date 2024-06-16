@@ -714,7 +714,7 @@ install_custom_env() {
 			echo "     > The 'shared_buffers' key in 'customPostgresql.conf' must match the SHM size of the Docker container."
 			echo "     > Please do not forget to change it! If you are ok with the default value of '64m', you can ignore this warning."
 		fi
-		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/var/lib/postgresql/data/postgresql.conf|g' ./live/docker-compose.yml
+		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
 		sed -i '/{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
