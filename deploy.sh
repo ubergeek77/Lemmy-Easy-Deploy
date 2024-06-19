@@ -1681,6 +1681,7 @@ fi
 		echo
 		echo "--> Starting ${service}..."
 		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
+		sleep 2
 
 		# Gracefully handle interrupts
 		trap handle_sigint SIGINT
