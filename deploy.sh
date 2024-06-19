@@ -1686,14 +1686,18 @@ for service in "${health_checks[@]}"; do
 	printf "Checking ${service}... "
 	SERVICE_STATE="$(get_service_status $service)"
 	if [[ "${SERVICE_STATE}" != "running" ]]; then
-		# End the previous line
 		echo
 		echo "Service '${service}' not immediately ready"
-		echo "Waiting up to 60 minutes for '${service}' to become healthy..."
+		echo "! The health check timeout has been disabled during the testing period."
+		echo "! That means the below process will loop forever if there is a permanent issue with the '${service}' service."
+		echo "! Please open another terminal and monitor the deployment with 'docker compose -p lemmy-easy-deploy logs ${service} -f' and watch for errors."
+		echo "! If something is wrong, please cancel this deployment with CTRL+C"
+		#echo "Waiting up to 60 minutes for '${service}' to become healthy..."
 		# Give it at least 60 minutes
-		set -x
 		retry=0
-		while [ $retry -lt 720 ]; do
+		# while [ $retry -lt 720 ]; do
+		# This is only temporary!
+		while :;
 			sleep 5
 			SERVICE_STATE="$(get_service_status "$service")"
 			echo "Attempt $retry: Service '${service}' is ${SERVICE_STATE} ..."
@@ -1702,7 +1706,6 @@ for service in "${health_checks[@]}"; do
 			fi
 			retry=$((retry + 1))
 		done
-		set +x
 		
 		SERVICE_STATE="$(get_service_status $service)"
 		if [[ "${SERVICE_STATE}" != "running" ]]; then
