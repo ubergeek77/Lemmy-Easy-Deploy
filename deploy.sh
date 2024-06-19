@@ -1694,6 +1694,9 @@ fi
 			echo >&2
 			echo >&2 "To allow for diagnostics, no further action will be taken."
 			echo >&2 "This deployment will remain in its current state."
+			echo >&2
+			echo >&2 "If you would like to shut down all services in this deployment, run:"
+			echo >&2 "    ./deploy.sh --shutdown"
 			exit 1
 		}
 
