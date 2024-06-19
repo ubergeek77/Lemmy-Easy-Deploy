@@ -1678,7 +1678,8 @@ fi
 	# Start services in order and do custom health checks
 	for service in "${service_order[@]}"; do
 		# Start this service
-		echo "Starting ${service}..."
+		echo
+		echo "--> Starting ${service}..."
 		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
 
 		# Gracefully handle interrupts
@@ -1743,7 +1744,6 @@ fi
 					echo "----> Checking again in 15 seconds. CTRL+C to abort deployment."
 					sleep 15
 				else
-					echo
 					echo "----> ${service} is ready!"
 					break;
 				fi
