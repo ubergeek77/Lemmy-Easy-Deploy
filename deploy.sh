@@ -239,7 +239,7 @@ get_service_status() {
 	# Run in a subshell where we cd to ./live first
 	# Some Docker distributions don't like only having the stack name and "need" to be in the same directory
 	(
-		cd ./live
+		cd "${SCRIPT_DIR:?}/live"
 		loop_n=0
 		while [ $loop_n -lt 10 ]; do
 			unset CONTAINER_ID
@@ -630,7 +630,11 @@ check_image_arch() {
 
 # Shut down a deployment
 shutdown_deployment() {
-	cd ./live
+	if [[ ! -d "${SCRIPT_DIR:?}/live" ]]; then
+		echo >&2 "Cannot find ./live folder, do you have a deployment?"
+		return 1
+	fi
+	cd "${SCRIPT_DIR:?}/live"
 	$COMPOSE_CMD -p "lemmy-easy-deploy" down
 }
 
@@ -1680,6 +1684,7 @@ fi
 		# Gracefully handle interrupts
 		trap handle_sigint SIGINT
 		handle_sigint() {
+			echo >&2
 			echo >&2 "! The user has aborted this deployment."
 			echo >&2 "! Dumping logs... "
 			LOG_FILENAME="abort-$(date +%s).log"
@@ -1697,7 +1702,7 @@ fi
 			# Define individual ready criteria for each service
 			case "${service}" in
 				"postgres")
-					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready; then
+					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready 2>&1 >/dev/null; then
 						service_ready=1
 					fi
 					;;
