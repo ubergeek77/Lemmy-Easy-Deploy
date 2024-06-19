@@ -1732,7 +1732,6 @@ fi
 					fi
 					;;
 				*)
-					sleep 5
 					if [[ "$(get_service_status $service)" == "running" ]]; then
 						service_ready=1
 					fi
