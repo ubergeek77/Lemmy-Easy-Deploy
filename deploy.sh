@@ -1680,6 +1680,8 @@ fi
 		# Start this service
 		echo "Starting ${service}..."
 		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
+		# Wait 5 seconds after startup so that the =="running" check is more reliable
+		sleep 5
 
 		# Gracefully handle interrupts
 		trap handle_sigint SIGINT
@@ -1748,6 +1750,9 @@ fi
 				fi
 		done
 	done
+
+	# Run compose up for good measure, expecially if the user added custom services
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
 
 # If we made it this far, we can assume all services have passed health checks
