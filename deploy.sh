@@ -1689,11 +1689,11 @@ for service in "${health_checks[@]}"; do
 		# End the previous line
 		echo
 		echo "Service '${service}' not immediately ready"
-		echo "Waiting up to 5 minutes for '${service}' to become healthy..."
-		# Give it at least 5 minutes
+		echo "Waiting up to 60 minutes for '${service}' to become healthy..."
+		# Give it at least 60 minutes
 		set -x
 		retry=0
-		while [ $retry -lt 60 ]; do
+		while [ $retry -lt 720 ]; do
 			sleep 5
 			SERVICE_STATE="$(get_service_status "$service")"
 			echo "Attempt $retry: Service '${service}' is ${SERVICE_STATE} ..."
