@@ -1642,6 +1642,15 @@ fi
 # Delete the email template if it exists
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
+# Define the list of services to expect, in deployment order
+# This will be used to start each in order, and perform health checks
+declare -a service_order=("postgres" "pictrs" "lemmy" "lemmy-ui" "proxy")
+
+# Add postfix if the user configured that
+if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
+	service_order+=("postfix")
+fi
+
 # Run the user's pre-deploy script if it exists
 # Run in a subshell so there's no environment/directory weirdness
 if [[ -x ./custom/pre-deploy.sh ]]; then
@@ -1658,8 +1667,87 @@ fi
 	if [[ "${HAS_VOLUME}" == "1" ]]; then
 		$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
 	fi
-	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
+
+	# Create the deployment without starting it
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d --no-start || true
+
+	# Start services in order and do custom health checks
+	for service in "${service_order[@]}"; do
+		# Start this service
+		echo "Starting ${service}..."
+		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
+
+		# Gracefully handle interrupts
+		trap handle_sigint SIGINT
+		handle_sigint() {
+			echo >&2 "! The user has aborted this deployment."
+			echo >&2 "! Dumping logs... "
+			LOG_FILENAME="abort-$(date +%s).log"
+			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >${SCRIPT_DIR:?}/${LOG_FILENAME:?}
+			echo >&2 "! Logs dumped to: ${SCRIPT_DIR:?}/${LOG_FILENAME:?}"
+			echo >&2
+			echo >&2 "To allow for diagnostics, no further action will be taken."
+			echo >&2 "This deployment will remain in its current state."
+			exit 1
+		}
+
+		# Wait for services to pass health checks
+		service_ready=0
+		while :; do
+			# Define individual ready criteria for each service
+			case "${service}" in
+				"postgres")
+					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready; then
+						service_ready=1
+					fi
+					;;
+				"pictrs")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec pictrs /bin/sh -c "wget -S 127.0.0.1:8080/healthz -O /dev/null 2>&1 | grep -i "HTTP/" | awk '{print \$2}'")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"lemmy")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:8536/api/v3/site")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"lemmy-ui")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy-ui /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:1234")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"postfix")
+					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec postfix postfix status 2>&1 >/dev/null; then
+						service_ready=1
+					fi
+					;;
+				*)
+					if [[ "$(get_service_status $service)" == "running" ]]; then
+						service_ready=1
+					fi
+					;;
+			esac
+
+			if [[ "${service_ready}" != "1" ]]; then
+					echo "----> ${service} is not ready yet. Log excerpt:"
+					echo
+					$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
+					echo
+					echo "----> Waiting indefinitely for ${service}."
+					echo "----> Checking again in 30 seconds. CTRL+C to abort deployment."
+					sleep 30
+				else
+					echo
+					echo "----> ${service} is ready!"
+					break;
+				fi
+		done
+	done
 )
+
+# If we made it this far, we can assume all services have passed health checks
+echo
+echo "--> All services have been deployed successfully!"
 
 # Run the user's post-deploy script if it exists
 # Run in a subshell so there's no environment/directory weirdness
@@ -1667,71 +1755,6 @@ if [[ -x ./custom/post-deploy.sh ]]; then
 	echo "--> Running custom post-deploy script"
 	(./custom/post-deploy.sh)
 fi
-
-# Do health checks
-# Give it 10 seconds to start up
-echo ""
-echo "Checking deployment status..."
-sleep 10
-
-# Services every deployment should have
-declare -a health_checks=("proxy" "lemmy-ui" "postgres" "pictrs" "lemmy")
-
-# Add postfix if the user configured that
-if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
-	health_checks+=("postfix")
-fi
-
-for service in "${health_checks[@]}"; do
-	printf "Checking ${service}... "
-	SERVICE_STATE="$(get_service_status $service)"
-	if [[ "${SERVICE_STATE}" != "running" ]]; then
-		echo
-		echo "Service '${service}' not immediately ready"
-		echo "! The health check timeout has been disabled during the testing period."
-		echo "! That means the below process will loop forever if there is a permanent issue with the '${service}' service."
-		echo "! Please open another terminal and monitor the deployment with 'docker compose -p lemmy-easy-deploy logs ${service} -f' and watch for errors."
-		echo "! If something is wrong, please cancel this deployment with CTRL+C"
-		#echo "Waiting up to 60 minutes for '${service}' to become healthy..."
-		# Give it at least 60 minutes
-		retry=0
-		# while [ $retry -lt 720 ]; do
-		# This is only temporary!
-		while :; do
-			sleep 5
-			SERVICE_STATE="$(get_service_status "$service")"
-			echo "Attempt $retry: Service '${service}' is ${SERVICE_STATE} ..."
-			if [[ "${SERVICE_STATE}" == "running" ]]; then
-				break
-			fi
-			retry=$((retry + 1))
-		done
-		
-		SERVICE_STATE="$(get_service_status $service)"
-		if [[ "${SERVICE_STATE}" != "running" ]]; then
-			echo "FAILED"
-			echo ""
-			echo >&2 "ERROR: Service $service unhealthy. Deployment failed."
-			echo >&2 "Dumping logs... "
-			LOG_FILENAME="failure-$(date +%s).log"
-			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >./${LOG_FILENAME:?}
-			echo >&2 ""
-			echo >&2 "Logs dumped to: ./${LOG_FILENAME:?}"
-			echo >&2 "(DO NOT POST THESE LOGS PUBLICLY, THEY MAY CONTAIN SENSITIVE INFORMATION)"
-			echo >&2 ""
-			echo >&2 "Please check these logs for potential easy fixes before reporting an issue!"
-			echo >&2 ""
-			echo >&2 "Shutting down failed deployment..."
-			$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
-			exit 1
-		else
-			echo "OK!"
-		fi
-	else
-		echo "OK!"
-	fi
-	sleep 1
-done
 
 # Write version file
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
@@ -1748,12 +1771,12 @@ VERSION_STRING="${LATEST_BACKEND:?};${LATEST_FRONTEND:?}"
 echo ${VERSION_STRING:?} >./live/version
 
 echo
-echo "Deploy complete!"
+echo "Deployment complete!"
 echo "   BE: ${LATEST_BACKEND}"
 echo "   FE: ${LATEST_FRONTEND}"
 echo ""
-echo "--------------------------------------------------------------------------------------"
-echo "NOTE: Please do not run from the ./live folder directly, or you may cause issues!"
+echo "-------------------------------------------------------------------------------------------------"
+echo "NOTE: Please do not run from the ./live folder directly, or you will cause volume name conflicts!"
 echo ""
 echo "To shut down your deployment, run:"
 echo "    ./deploy.sh --shutdown"
@@ -1761,13 +1784,16 @@ echo ""
 echo "To start your deployment back up, run"
 echo "    ./deploy.sh"
 echo ""
+echo "To re-deploy after making configuration changes, run"
+echo "    ./deploy.sh -f"
+echo ""
 echo "If you must manage your deployment manually, it is critical to supply the stack name:"
 echo "    $COMPOSE_CMD -p \"lemmy-easy-deploy\" [up/down/etc]"
 echo ""
-echo "--------------------------------------------------------------------------------------"
+echo "-------------------------------------------------------------------------------------------------"
 
 if [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "Lemmy admin credentials:"
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
-	echo "--------------------------------------------------------------------------------------"
+	echo "-------------------------------------------------------------------------------------------------"
 fi
