@@ -1739,8 +1739,8 @@ fi
 					$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
 					echo
 					echo "----> Waiting indefinitely for ${service}."
-					echo "----> Checking again in 30 seconds. CTRL+C to abort deployment."
-					sleep 30
+					echo "----> Checking again in 15 seconds. CTRL+C to abort deployment."
+					sleep 15
 				else
 					echo
 					echo "----> ${service} is ready!"
