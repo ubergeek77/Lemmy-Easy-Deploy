@@ -1680,8 +1680,6 @@ fi
 		# Start this service
 		echo "Starting ${service}..."
 		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
-		# Wait 5 seconds after startup so that the =="running" check is more reliable
-		sleep 5
 
 		# Gracefully handle interrupts
 		trap handle_sigint SIGINT
@@ -1729,6 +1727,7 @@ fi
 					fi
 					;;
 				*)
+					sleep 5
 					if [[ "$(get_service_status $service)" == "running" ]]; then
 						service_ready=1
 					fi
