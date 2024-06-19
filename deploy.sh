@@ -1697,7 +1697,7 @@ for service in "${health_checks[@]}"; do
 		retry=0
 		# while [ $retry -lt 720 ]; do
 		# This is only temporary!
-		while :;
+		while :; do
 			sleep 5
 			SERVICE_STATE="$(get_service_status "$service")"
 			echo "Attempt $retry: Service '${service}' is ${SERVICE_STATE} ..."
