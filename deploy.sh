@@ -1552,7 +1552,7 @@ COMPOSE_CADDY_IMAGE="image: caddy:latest"
 # Generate all the env files, make a Caddy directory since we'll need it
 mkdir -p ./live/caddy
 if [[ ! -f "./live/pictrs.env" ]]; then
-	echo "PICTRS__API_KEY=$(random_string)" >./live/pictrs.env
+	echo "PICTRS__SERVER__API_KEY=$(random_string)" >./live/pictrs.env
 fi
 if [[ ! -f "./live/postgres.env" ]]; then
 	echo "POSTGRES_PASSWORD=$(random_string)" >./live/postgres.env
@@ -1569,6 +1569,13 @@ source ./live/postgres.env
 source ./live/caddy.env
 source ./live/postfix.env
 source ./live/lemmy.env
+
+# Pictrs has renamed its API key environment variable
+# Handle this automatically for users
+if [[ "${PICTRS__SERVER__API_KEY}" == "" ]] && [[ "${PICTRS__API_KEY}" != "" ]]; then
+	echo "PICTRS__SERVER__API_KEY=${PICTRS__API_KEY}" >>./live/pictrs.env
+	source ./live/pictrs.env
+fi
 
 # Generate the Caddyfile
 # Use the non-http config if configured
@@ -1613,7 +1620,7 @@ install_custom_env
 
 # Generate initial lemmy.hjson
 sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
-	-e "s|{{PICTRS__API_KEY}}|${PICTRS__API_KEY:?}|g" \
+	-e "s|{{PICTRS__SERVER__API_KEY}}|${PICTRS__SERVER__API_KEY:?}|g" \
 	-e "s|{{POSTGRES_PASSWORD}}|${POSTGRES_PASSWORD:?}|g" \
 	-e "s|{{POSTGRES_POOL_SIZE}}|${POSTGRES_POOL_SIZE:?}|g" \
 	-e "s|{{SETUP_ADMIN_PASS}}|${SETUP_ADMIN_PASS:?}|g" \
