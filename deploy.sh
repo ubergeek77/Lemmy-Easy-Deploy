@@ -1328,7 +1328,7 @@ fi
 
 # Warn the user about the postgres 15 -> 16 migration
 postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
-if [[ -n "$number" ]] && [[ "$number" =~ ^[0-9]+$ ]] &&[ "$number" -lt 16 ]; then
+if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
 		echo "--------------------------------------------------------------------|"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|                                                                   |"
