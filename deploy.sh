@@ -1175,13 +1175,13 @@ if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "| in named Docker volumes in the Docker system directory.               |"
 	echo "|                                                                       |"
 	echo "| In that case, you will need to migrate those named volumes over to    |"
-	echo "| this machine before continuing. Lemmy-Easy-Deploy cannot currently    |"
-	echo "| do this for you automatically, but there may be a feature to do so    |"
-	echo "| in the future.                                                        |"
+	echo "| this machine before continuing.                                       |"
+	echo "|                                                                       |"
+	echo "| Lemmy-Easy-Deploy cannot do this for you automatically.               |"
 	echo "|                                                                       |"
 	echo "| If you continue, any credentials and settings that have already been  |"
 	echo "| generated will be used again, but the Lemmy instance you deploy will  |"
-	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.    |"
+	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.  |"
 	echo "|                                                                       |"
 	echo "| If deploy.sh does not start Lemmy from this state, you may need to    |"
 	echo "| run deploy.sh with the -f flag to force-redeploy.                     |"
@@ -1324,6 +1324,43 @@ if [[ -f ./custom/docker-compose.yml.template ]]; then
 	echo "         The deployment usually has significant changes after major Lemmy updates."
 	echo "         Please remember to incorporate any changes into your docker-compose.yml.template before deploying!"
 	echo "---------------------------------------------------------------------------------------------------------------"
+fi
+
+# Warn the user about the postgres 15 -> 16 migration
+postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
+if [[ -n "$number" ]] && [[ "$number" =~ ^[0-9]+$ ]] &&[ "$number" -lt 16 ]; then
+		echo "--------------------------------------------------------------------|"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|                                                                   |"
+		echo "|      It looks like you are using Postgres version 15 or lower.    |"
+		echo "|                                                                   |"
+		echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
+		echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
+		echo "|         will handle this migration for you automatically,         |"
+		echo "|             thanks to the 'pgautoupgrade' project.                |"
+		echo "|                                                                   |"
+		echo "|    This migration will require no action from you, and should     |"
+		echo "|      take under 1 minute for even large Postgres databases.       |"
+		echo "|                                                                   |"
+		echo "|    However, since the migration is done in-place, with no way     |"
+		echo "|    to roll back, you are highly encouraged to create a backup     |"
+		echo "|     of your Postgres volume before proceeding, just in case.      |"
+		echo "|                                                                   |"
+		echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
+		echo "|                                                                   |"
+		echo "| Please consult the Docker docs for commands on making a backup:   |"
+		echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
+		echo "|                                                                   |"
+		echo "| Your Postgres data is stored in the following Volume:             |"
+		echo "|       lemmy-easy-deploy_postgres_data                             |"
+		echo "|                                                                   |"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|-------------------------------------------------------------------|"
+		echo
+		PROMPT_STRING="Would you like to proceed with this automated Postgres migration?"
+		if ! ask_user "${PROMPT_STRING:?}"; then
+			exit 0
+		fi
 fi
 
 # Ask the user if they want to update
@@ -1672,7 +1709,7 @@ fi
 # Set up the new deployment
 # Only run down if we can assume the user has a deployment already
 (
-	cd ./live
+	cd "${SCRIPT_DIR:?}/live"
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
 	if [[ "${HAS_VOLUME}" == "1" ]]; then
@@ -1796,7 +1833,7 @@ echo "   BE: ${LATEST_BACKEND}"
 echo "   FE: ${LATEST_FRONTEND}"
 echo ""
 echo "-------------------------------------------------------------------------------------------------"
-echo "NOTE: Please do not run from the ./live folder directly, or you will cause volume name conflicts!"
+echo "NOTE: Please do not run from the ./live folder directly, or you may cause volume name conflicts!"
 echo ""
 echo "To shut down your deployment, run:"
 echo "    ./deploy.sh --shutdown"
