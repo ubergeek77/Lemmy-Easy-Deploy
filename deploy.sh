@@ -1361,6 +1361,7 @@ if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$p
 		if ! ask_user "${PROMPT_STRING:?}"; then
 			exit 0
 		fi
+		echo
 fi
 
 # Ask the user if they want to update
@@ -1397,7 +1398,7 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo
 	fi
 	# Change prompt depending on the situation
-	PROMPT_STRING="Would you like to deploy this update?"
+	PROMPT_STRING="Would you like to proceed with this deployment?"
 	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
 		PROMPT_STRING="Ready to deploy?"
 	elif [[ "${CURRENT_BACKEND}" == "${LATEST_BACKEND}" ]] && [[ "${CURRENT_FRONTEND}" == "${LATEST_FRONTEND}" ]]; then
@@ -1737,11 +1738,18 @@ fi
 			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >${SCRIPT_DIR:?}/${LOG_FILENAME:?}
 			echo >&2 "! Logs dumped to: ${SCRIPT_DIR:?}/${LOG_FILENAME:?}"
 			echo >&2
-			echo >&2 "To allow for diagnostics, no further action will be taken."
-			echo >&2 "This deployment will remain in its current state."
+			echo >&2 "! Please do NOT post this publicly - it may contain sensitive information,"
+			echo >&2" ! such as credentials or IP addresses."
 			echo >&2
-			echo >&2 "If you would like to shut down all services in this deployment, run:"
-			echo >&2 "    ./deploy.sh --shutdown"
+			echo >&2 "! To allow for diagnostics, no further action will be taken."
+			echo >&2 "! This deployment will remain in its current state, which may include containers crashing repeatedly."
+			echo >&2
+			echo >&2 "! If you would like to shut down all services in this deployment, run:"
+			echo >&2 "!     ./deploy.sh --shutdown"
+			echo >&2
+			echo >&2 "! If you have no idea what went wrong, you may file an issue:"
+			echo >&2 "!     https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/new/choose"
+
 			exit 1
 		}
 
@@ -1783,13 +1791,15 @@ fi
 			esac
 
 			if [[ "${service_ready}" != "1" ]]; then
-					echo "----> ${service} is not ready yet. Log excerpt:"
+					echo "----> '${service}' is still starting up. Log excerpt:"
 					echo
 					$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
 					echo
-					echo "----> Waiting indefinitely for ${service}."
+					echo "----> Waiting for '${service}'"
 					echo "----> Checking again in 15 seconds."
-					echo "---->  CTRL+C to abort deployment. This will keep the services running as-is and allow for manual diagnostics."
+					echo "------> To abort, press CTRL+C, which will keep services running and allow for manual diagnostics."
+					echo "------> Please DO NOT press CTRL+C unless you see a fatal error above, or if this is taking way too long."
+					echo "------> Interrupting an ongoing database migration is NOT recommended!"
 					sleep 15
 				else
 					echo "----> ${service} is ready!"
