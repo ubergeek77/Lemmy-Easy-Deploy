@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.3.4"
+LED_CURRENT_VERSION="1.4.0"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -118,6 +118,7 @@ load_env() {
 	SMTP_TLS_TYPE="${SMTP_TLS_TYPE:-none}"
 	ENABLE_POSTFIX="${ENABLE_POSTFIX:-false}"
 	POSTGRES_POOL_SIZE="${POSTGRES_POOL_SIZE:-5}"
+	POSTGRES_SHM_SIZE="${POSTGRES_SHM_SIZE:-64m}"
 
 }
 
@@ -212,6 +213,7 @@ diag_info() {
 		echo "         SMTP_PORT: ${SMTP_PORT}"
 		echo "    ENABLE_POSTFIX: ${ENABLE_POSTFIX}"
 		echo "POSTGRES_POOL_SIZE: ${POSTGRES_POOL_SIZE}"
+		echo "POSTGRES_SHM_SIZE: ${POSTGRES_SHM_SIZE}"
 	fi
 	echo ""
 	echo "==== Generated Files ===="
@@ -237,7 +239,7 @@ get_service_status() {
 	# Run in a subshell where we cd to ./live first
 	# Some Docker distributions don't like only having the stack name and "need" to be in the same directory
 	(
-		cd ./live
+		cd "${SCRIPT_DIR:?}/live"
 		loop_n=0
 		while [ $loop_n -lt 10 ]; do
 			unset CONTAINER_ID
@@ -628,7 +630,11 @@ check_image_arch() {
 
 # Shut down a deployment
 shutdown_deployment() {
-	cd ./live
+	if [[ ! -d "${SCRIPT_DIR:?}/live" ]]; then
+		echo >&2 "Cannot find ./live folder, do you have a deployment?"
+		return 1
+	fi
+	cd "${SCRIPT_DIR:?}/live"
 	$COMPOSE_CMD -p "lemmy-easy-deploy" down
 }
 
@@ -707,7 +713,16 @@ install_custom_env() {
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
 		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
-		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/var/lib/postgresql/data/postgresql.conf|g' ./live/docker-compose.yml
+		if grep -qe '^shared_buffers' "./custom/customPostgresql.conf" && [[ "${POSTGRES_SHM_SIZE}" == "64m" ]]; then
+			echo "----> WARNING: You have not changed the SHM size for the Postgres container from the default value of '64m'"
+			echo "----> 'shared_buffers' in 'customPostgresql.conf' must match the SHM size of the Docker container."
+			echo "----> You should cancel this deployment, and add 'POSTGRES_SHM_SIZE' to 'config.env' with a value that matches 'shared_buffers'"
+			echo
+			if ! ask_user "Do you want to proceed anyway?"; then
+				exit 0
+			fi
+		fi
+		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
 	else
 		sed -i '/{{ POSTGRES_CONF }}/d' ./live/docker-compose.yml
@@ -1164,13 +1179,13 @@ if [[ "${CURRENT_BACKEND}" != "0.0.0" ]] && [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "| in named Docker volumes in the Docker system directory.               |"
 	echo "|                                                                       |"
 	echo "| In that case, you will need to migrate those named volumes over to    |"
-	echo "| this machine before continuing. Lemmy-Easy-Deploy cannot currently    |"
-	echo "| do this for you automatically, but there may be a feature to do so    |"
-	echo "| in the future.                                                        |"
+	echo "| this machine before continuing.                                       |"
+	echo "|                                                                       |"
+	echo "| Lemmy-Easy-Deploy cannot do this for you automatically.               |"
 	echo "|                                                                       |"
 	echo "| If you continue, any credentials and settings that have already been  |"
 	echo "| generated will be used again, but the Lemmy instance you deploy will  |"
-	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.    |"
+	echo "| be a \"brand new\" one. Otherwise, this deployment should work fine.  |"
 	echo "|                                                                       |"
 	echo "| If deploy.sh does not start Lemmy from this state, you may need to    |"
 	echo "| run deploy.sh with the -f flag to force-redeploy.                     |"
@@ -1317,10 +1332,50 @@ fi
 
 # Warn the user to check their file before deploying
 if [[ -f ./custom/docker-compose.yml.template ]]; then
+	echo "---------------------------------------------------------------------------------------------------------------"
+	echo "WARNING: You are currently overriding the built-in docker-compose.yml with your own template."
 	echo ""
-	echo "NOTE: You are currently overriding the built-in docker-compose.yml with your own template."
-	echo "      Please remember to incorporate any new changes into your docker-compose.yml.template before deploying!"
-	echo ""
+	echo "         Your custom docker-compose.yml.template must closely match the example provided by Lemmy-Easy-Deploy."
+	echo "         The deployment usually has significant changes after major Lemmy updates."
+	echo "         Please remember to incorporate any changes into your docker-compose.yml.template before deploying!"
+	echo "---------------------------------------------------------------------------------------------------------------"
+fi
+
+# Warn the user about the postgres 15 -> 16 migration
+postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
+if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
+		echo "--------------------------------------------------------------------|"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|                                                                   |"
+		echo "|      It looks like you are using Postgres version 15 or lower.    |"
+		echo "|                                                                   |"
+		echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
+		echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
+		echo "|         will handle this migration for you automatically,         |"
+		echo "|             thanks to the 'pgautoupgrade' project.                |"
+		echo "|                                                                   |"
+		echo "|    This migration will require no action from you, and should     |"
+		echo "|      take under 1 minute for even large Postgres databases.       |"
+		echo "|                                                                   |"
+		echo "|    However, since the migration is done in-place, with no way     |"
+		echo "|    to roll back, you are highly encouraged to create a backup     |"
+		echo "|     of your Postgres volume before proceeding, just in case.      |"
+		echo "|                                                                   |"
+		echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
+		echo "|                                                                   |"
+		echo "| Please consult the Docker docs for commands on making a backup:   |"
+		echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
+		echo "|                                                                   |"
+		echo "| Your Postgres data is stored in the following Volume:             |"
+		echo "|       lemmy-easy-deploy_postgres_data                             |"
+		echo "|                                                                   |"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|-------------------------------------------------------------------|"
+		echo
+		if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
+			exit 0
+		fi
+		echo
 fi
 
 # Ask the user if they want to update
@@ -1330,13 +1385,15 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "--------------------------------------------------------------------|"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|                                                                   |"
-		echo "| Updates to the Lemmy Backend perform a database migration!        |"
+		echo "|    Updates to the Lemmy Backend perform a database migration!     |"
 		echo "|                                                                   |"
-		echo "| This process is **generally safe and does not risk data loss.**   |"
+		echo "|      This is generally safe, but Lemmy bugs may cause issues.     |"
 		echo "|                                                                   |"
-		echo "| However, if you update, but run into a new bug/issue,             |"
-		echo "| you will NOT be able to roll back to the previous version!        |"
-		echo "| You will be stuck with the bug/issue until an update is released. |"
+		echo "|   It is generally recommended to wait a day or two after a major  |"
+		echo "|    Lemmy update, to allow time for major bugs to be reported.     |"
+		echo "|                                                                   |"
+		echo "| If you update, and run into a new bug/issue in Lemmy, you will    |"
+		echo "| NOT be able to roll back, unless you restore a database backup!   |"
 		echo "|                                                                   |"
 		echo "|              LEMMY BACKEND UPDATES ARE ONE-WAY ONLY               |"
 		echo "|                                                                   |"
@@ -1350,14 +1407,12 @@ if [[ "${BACKEND_OUTDATED}" == "1" ]] || [[ "${FRONTEND_OUTDATED}" == "1" ]]; th
 		echo "| The most important Volume to back up is named:                    |"
 		echo "|       lemmy-easy-deploy_postgres_data                             |"
 		echo "|                                                                   |"
-		echo "|    (Lemmy-Easy-Deploy may automate this process in the future)    |"
-		echo "|                                                                   |"
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|-------------------------------------------------------------------|"
 		echo
 	fi
 	# Change prompt depending on the situation
-	PROMPT_STRING="Would you like to deploy this update?"
+	PROMPT_STRING="Would you like to proceed with this deployment?"
 	if [[ "${CURRENT_BACKEND}" == "0.0.0" ]] && [[ "${CURRENT_FRONTEND}" == "0.0.0" ]]; then
 		PROMPT_STRING="Ready to deploy?"
 	elif [[ "${CURRENT_BACKEND}" == "${LATEST_BACKEND}" ]] && [[ "${CURRENT_FRONTEND}" == "${LATEST_FRONTEND}" ]]; then
@@ -1549,7 +1604,7 @@ COMPOSE_CADDY_IMAGE="image: caddy:latest"
 # Generate all the env files, make a Caddy directory since we'll need it
 mkdir -p ./live/caddy
 if [[ ! -f "./live/pictrs.env" ]]; then
-	echo "PICTRS__API_KEY=$(random_string)" >./live/pictrs.env
+	echo "PICTRS__SERVER__API_KEY=$(random_string)" >./live/pictrs.env
 fi
 if [[ ! -f "./live/postgres.env" ]]; then
 	echo "POSTGRES_PASSWORD=$(random_string)" >./live/postgres.env
@@ -1566,6 +1621,13 @@ source ./live/postgres.env
 source ./live/caddy.env
 source ./live/postfix.env
 source ./live/lemmy.env
+
+# Pictrs has renamed its API key environment variable
+# Handle this automatically for users
+if [[ "${PICTRS__SERVER__API_KEY}" == "" ]] && [[ "${PICTRS__API_KEY}" != "" ]]; then
+	echo "PICTRS__SERVER__API_KEY=${PICTRS__API_KEY}" >>./live/pictrs.env
+	source ./live/pictrs.env
+fi
 
 # Generate the Caddyfile
 # Use the non-http config if configured
@@ -1590,6 +1652,7 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{COMPOSE_LEMMY_UI_IMAGE}}|${COMPOSE_LEMMY_UI_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
+	-e "s|{{POSTGRES_SHM_SIZE}}|${POSTGRES_SHM_SIZE:?}|g" \
 	${COMPOSE_TEMPLATE:?} >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
@@ -1609,7 +1672,7 @@ install_custom_env
 
 # Generate initial lemmy.hjson
 sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
-	-e "s|{{PICTRS__API_KEY}}|${PICTRS__API_KEY:?}|g" \
+	-e "s|{{PICTRS__SERVER__API_KEY}}|${PICTRS__SERVER__API_KEY:?}|g" \
 	-e "s|{{POSTGRES_PASSWORD}}|${POSTGRES_PASSWORD:?}|g" \
 	-e "s|{{POSTGRES_POOL_SIZE}}|${POSTGRES_POOL_SIZE:?}|g" \
 	-e "s|{{SETUP_ADMIN_PASS}}|${SETUP_ADMIN_PASS:?}|g" \
@@ -1620,6 +1683,15 @@ sed -e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 # If ENABLE_EMAIL is true, add the email block to the lemmy config
 if [[ "${ENABLE_EMAIL}" == "1" ]] || [[ "${ENABLE_EMAIL}" == "true" ]]; then
 	sed -i -e "/{{EMAIL_BLOCK}}/r ${LEMMY_EMAIL_SNIP:?}" ./live/lemmy.hjson
+
+	# If SMTP_LOGIN or SMTP_PASSWORD are blank, delete them from the config
+	if [[ "${SMTP_LOGIN}" == "" ]]; then
+		sed -i '/{{SMTP_LOGIN}}/d' ./live/lemmy.hjson
+	fi
+
+	if [[ "${SMTP_PASSWORD}" == "" ]]; then
+		sed -i '/{{SMTP_PASSWORD}}/d' ./live/lemmy.hjson
+	fi
 
 	sed -i -e "s|{{SMTP_SERVER}}|${SMTP_SERVER}|g" \
 		-e "s|{{SMTP_PORT}}|${SMTP_PORT}|g" \
@@ -1633,6 +1705,15 @@ fi
 # Delete the email template if it exists
 sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
+# Define the list of services to expect, in deployment order
+# This will be used to start each in order, and perform health checks
+declare -a service_order=("postgres" "pictrs" "lemmy" "lemmy-ui" "proxy")
+
+# Add postfix if the user configured that
+if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
+	service_order+=("postfix")
+fi
+
 # Run the user's pre-deploy script if it exists
 # Run in a subshell so there's no environment/directory weirdness
 if [[ -x ./custom/pre-deploy.sh ]]; then
@@ -1643,14 +1724,111 @@ fi
 # Set up the new deployment
 # Only run down if we can assume the user has a deployment already
 (
-	cd ./live
+	cd "${SCRIPT_DIR:?}/live"
 	$COMPOSE_CMD -p "lemmy-easy-deploy" pull
 	$COMPOSE_CMD -p "lemmy-easy-deploy" build
 	if [[ "${HAS_VOLUME}" == "1" ]]; then
 		$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
 	fi
+
+	# Create the deployment without starting it
+	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d --no-start || true
+
+	# Start services in order and do custom health checks
+	for service in "${service_order[@]}"; do
+		# Start this service
+		echo
+		echo "--> Starting ${service}..."
+		$COMPOSE_CMD -p "lemmy-easy-deploy" start "${service}" || true
+		sleep 2
+
+		# Gracefully handle interrupts
+		trap handle_sigint SIGINT
+		handle_sigint() {
+			echo >&2
+			echo >&2 "! The user has aborted this deployment."
+			echo >&2 "! Dumping logs... "
+			LOG_FILENAME="abort-$(date +%s).log"
+			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >${SCRIPT_DIR:?}/${LOG_FILENAME:?}
+			echo >&2 "! Logs dumped to: ${SCRIPT_DIR:?}/${LOG_FILENAME:?}"
+			echo >&2
+			echo >&2 "! Please do NOT post this publicly - it may contain sensitive information,"
+			echo >&2" ! such as credentials or IP addresses."
+			echo >&2
+			echo >&2 "! To allow for diagnostics, no further action will be taken."
+			echo >&2 "! This deployment will remain in its current state, which may include containers crashing repeatedly."
+			echo >&2
+			echo >&2 "! If you would like to shut down all services in this deployment, run:"
+			echo >&2 "!     ./deploy.sh --shutdown"
+			echo >&2
+			echo >&2 "! If you have no idea what went wrong, you may file an issue:"
+			echo >&2 "!     https://github.com/ubergeek77/Lemmy-Easy-Deploy/issues/new/choose"
+
+			exit 1
+		}
+
+		# Wait for services to pass health checks
+		service_ready=0
+		while :; do
+			# Define individual ready criteria for each service
+			case "${service}" in
+				"postgres")
+					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready 2>&1 >/dev/null; then
+						service_ready=1
+					fi
+					;;
+				"pictrs")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec pictrs /bin/sh -c "wget -S 127.0.0.1:8080/healthz -O /dev/null 2>&1 | grep -i "HTTP/" | awk '{print \$2}'")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"lemmy")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:8536/api/v3/site")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"lemmy-ui")
+					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy-ui /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:1234")" == "200" ]]; then
+						service_ready=1
+					fi
+					;;
+				"postfix")
+					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec postfix postfix status 2>&1 >/dev/null; then
+						service_ready=1
+					fi
+					;;
+				*)
+					if [[ "$(get_service_status $service)" == "running" ]]; then
+						service_ready=1
+					fi
+					;;
+			esac
+
+			if [[ "${service_ready}" != "1" ]]; then
+					echo "----> '${service}' is still starting up. Log excerpt:"
+					echo
+					$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
+					echo
+					echo "----> Waiting for '${service}'"
+					echo "----> Checking again in 15 seconds."
+					echo "------> To abort, press CTRL+C, which will keep services running and allow for manual diagnostics."
+					echo "------> Please DO NOT press CTRL+C unless you see a fatal error above, or if this is taking way too long."
+					echo "------> Interrupting an ongoing database migration is NOT recommended!"
+					sleep 15
+				else
+					echo "----> ${service} is ready!"
+					break;
+				fi
+		done
+	done
+
+	# Run compose up for good measure, expecially if the user added custom services
 	$COMPOSE_CMD -p "lemmy-easy-deploy" up -d || true
 )
+
+# If we made it this far, we can assume all services have passed health checks
+echo
+echo "--> All services have been deployed successfully!"
 
 # Run the user's post-deploy script if it exists
 # Run in a subshell so there's no environment/directory weirdness
@@ -1658,53 +1836,6 @@ if [[ -x ./custom/post-deploy.sh ]]; then
 	echo "--> Running custom post-deploy script"
 	(./custom/post-deploy.sh)
 fi
-
-# Do health checks
-# Give it 2 seconds to start up
-echo ""
-echo "Checking deployment status..."
-sleep 2
-
-# Services every deployment should have
-declare -a health_checks=("proxy" "lemmy" "lemmy-ui" "pictrs" "postgres")
-
-# Add postfix if the user configured that
-if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
-	health_checks+=("postfix")
-fi
-
-for service in "${health_checks[@]}"; do
-	printf "Checking ${service}... "
-	SERVICE_STATE="$(get_service_status $service)"
-	if [[ "${SERVICE_STATE}" != "running" ]]; then
-		# Give it a little bit...
-		printf "${SERVICE_STATE} ... "
-		sleep 5
-		SERVICE_STATE="$(get_service_status $service)"
-		if [[ "${SERVICE_STATE}" != "running" ]]; then
-			echo "FAILED"
-			echo ""
-			echo >&2 "ERROR: Service $service unhealthy. Deployment failed."
-			echo >&2 "Dumping logs... "
-			LOG_FILENAME="failure-$(date +%s).log"
-			$COMPOSE_CMD -p "lemmy-easy-deploy" logs >./${LOG_FILENAME:?}
-			echo >&2 ""
-			echo >&2 "Logs dumped to: ./${LOG_FILENAME:?}"
-			echo >&2 "(DO NOT POST THESE LOGS PUBLICLY, THEY MAY CONTAIN SENSITIVE INFORMATION)"
-			echo >&2 ""
-			echo >&2 "Please check these logs for potential easy fixes before reporting an issue!"
-			echo >&2 ""
-			echo >&2 "Shutting down failed deployment..."
-			$COMPOSE_CMD -p "lemmy-easy-deploy" down || true
-			exit 1
-		else
-			echo "OK!"
-		fi
-	else
-		echo "OK!"
-	fi
-	sleep 1
-done
 
 # Write version file
 if [[ "${REBUILD_SOURCE}" == "1" ]]; then
@@ -1721,12 +1852,12 @@ VERSION_STRING="${LATEST_BACKEND:?};${LATEST_FRONTEND:?}"
 echo ${VERSION_STRING:?} >./live/version
 
 echo
-echo "Deploy complete!"
+echo "Deployment complete!"
 echo "   BE: ${LATEST_BACKEND}"
 echo "   FE: ${LATEST_FRONTEND}"
 echo ""
-echo "--------------------------------------------------------------------------------------"
-echo "NOTE: Please do not run from the ./live folder directly, or you may cause issues!"
+echo "-------------------------------------------------------------------------------------------------"
+echo "NOTE: Please do not run from the ./live folder directly, or you may cause volume name conflicts!"
 echo ""
 echo "To shut down your deployment, run:"
 echo "    ./deploy.sh --shutdown"
@@ -1734,13 +1865,16 @@ echo ""
 echo "To start your deployment back up, run"
 echo "    ./deploy.sh"
 echo ""
+echo "To re-deploy after making configuration changes, run"
+echo "    ./deploy.sh -f"
+echo ""
 echo "If you must manage your deployment manually, it is critical to supply the stack name:"
 echo "    $COMPOSE_CMD -p \"lemmy-easy-deploy\" [up/down/etc]"
 echo ""
-echo "--------------------------------------------------------------------------------------"
+echo "-------------------------------------------------------------------------------------------------"
 
 if [[ "${HAS_VOLUME}" == "0" ]]; then
 	echo "Lemmy admin credentials:"
 	cat ./live/lemmy.hjson | grep -e "admin_.*:"
-	echo "--------------------------------------------------------------------------------------"
+	echo "-------------------------------------------------------------------------------------------------"
 fi

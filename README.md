@@ -96,6 +96,10 @@ If you want to use a **custom Postgres configuration**, as mentioned by the [dat
 
 This file will be passed to the Postgres container and override the default config.
 
+You may also refer to [the example Postgres config from the Lemmy Ansible deployment](https://github.com/LemmyNet/lemmy-ansible/blob/main/examples/customPostgresql.conf).
+
+If you are experiencing database performance issues, but have sufficient system resources, consider supplying your own customPostgresql.conf file to make better use of system resources.
+
 If you are an advanced user, and need to:
 
 - Specify custom environment variables for a service
