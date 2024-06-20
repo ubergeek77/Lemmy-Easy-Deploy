@@ -715,8 +715,8 @@ install_custom_env() {
 		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
 		if grep -qe '^shared_buffers' "./custom/customPostgresql.conf" && [[ "${POSTGRES_SHM_SIZE}" == "64m" ]]; then
 			echo "----> WARNING: You have not changed the SHM size for the Postgres container from the default value of '64m'"
-			echo "----> The 'shared_buffers' key in 'customPostgresql.conf' must match the SHM size of the Docker container."
-			echo "----> It is strongly recommended to add the 'POSTGRES_SHM_SIZE' variable to 'config.env' with a value that matches 'shared_buffers'"
+			echo "----> 'shared_buffers' in 'customPostgresql.conf' must match the SHM size of the Docker container."
+			echo "----> You should cancel this deployment, and add 'POSTGRES_SHM_SIZE' to 'config.env' with a value that matches 'shared_buffers'"
 			echo
 			if ! ask_user "Do you want to proceed anyway?"; then
 				exit 0
