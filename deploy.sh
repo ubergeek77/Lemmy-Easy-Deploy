@@ -713,10 +713,13 @@ install_custom_env() {
 
 	if [[ -f ./custom/customPostgresql.conf ]]; then
 		echo "--> Found customPostgresql.conf; overriding default 'postgresql.conf'"
-		if [[ "${POSTGRES_SHM_SIZE}" == "64m" ]]; then
-			echo "     > WARNING: You have not changed the SHM size for the Postgres container from the default value of '64m'"
-			echo "     > The 'shared_buffers' key in 'customPostgresql.conf' must match the SHM size of the Docker container."
-			echo "     > Please do not forget to change it! If you are ok with the default value of '64m', you can ignore this warning."
+		if grep -qe '^shared_buffers' "./custom/customPostgresql.conf" && [[ "${POSTGRES_SHM_SIZE}" == "64m" ]]; then
+			echo "----> WARNING: You have not changed the SHM size for the Postgres container from the default value of '64m'"
+			echo "----> The 'shared_buffers' key in 'customPostgresql.conf' must match the SHM size of the Docker container."
+			echo
+			if ! ask_user "Do you want to proceed anyway?"; then
+				exit 0
+			fi
 		fi
 		sed -i -e 's|{{ POSTGRES_CONF }}|./customPostgresql.conf:/etc/postgresql.conf|g' ./live/docker-compose.yml
 		cp ./custom/customPostgresql.conf ./live
@@ -1357,8 +1360,7 @@ if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$p
 		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
 		echo "|-------------------------------------------------------------------|"
 		echo
-		PROMPT_STRING="Would you like to proceed with this automated Postgres migration?"
-		if ! ask_user "${PROMPT_STRING:?}"; then
+		if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
 			exit 0
 		fi
 		echo
