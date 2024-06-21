@@ -51,6 +51,9 @@ FAQ & Troubleshooting
 	- However, the data under the hood is just stored in Docker volumes.
 	- Please see the official Docker documentation for information on how to get data into and out of Docker volumes:
 		- https://docs.docker.com/storage/volumes/#back-up-restore-or-migrate-data-volumes
+        - For backups and migrations across servers, I personally use `resticprofile` tracking the entirety of the `/var/lib/docker` directory
+	        - This fantastic guide is what I used to set up my own offsite backups:
+	        	- https://helgeklein.com/blog/restic-encrypted-offsite-backup-with-ransomware-protection-for-your-homeserver/ 
 
 - How can I run regular `docker compose` commands?
   - This script deploys a Lemmy instance using Docker compose, with a **stack name** of `lemmy-easy-deploy`
