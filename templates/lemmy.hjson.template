@@ -12,7 +12,7 @@
 
   pictrs: {
     url: "http://pictrs:8080/"
-    api_key: "{{PICTRS__API_KEY}}"
+    api_key: "{{PICTRS__SERVER__API_KEY}}"
   }
 
   database: {
