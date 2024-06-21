@@ -1742,7 +1742,7 @@ fi
 			echo >&2 "! Logs dumped to: ${SCRIPT_DIR:?}/${LOG_FILENAME:?}"
 			echo >&2
 			echo >&2 "! Please do NOT post this publicly - it may contain sensitive information,"
-			echo >&2" ! such as credentials or IP addresses."
+			echo >&2 "! such as credentials or IP addresses."
 			echo >&2
 			echo >&2 "! To allow for diagnostics, no further action will be taken."
 			echo >&2 "! This deployment will remain in its current state, which may include containers crashing repeatedly."
