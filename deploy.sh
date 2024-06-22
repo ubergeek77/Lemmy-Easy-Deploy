@@ -1696,7 +1696,7 @@ sed -i '/{{EMAIL_BLOCK}}/d' ./live/lemmy.hjson
 
 # Define the list of services to expect, in deployment order
 # This will be used to start each in order, and perform health checks
-declare -a service_order=("postgres" "pictrs" "lemmy" "lemmy-ui" "proxy")
+declare -a service_order=("proxy" "postgres" "pictrs" "lemmy" "lemmy-ui")
 
 # Add postfix if the user configured that
 if [[ "${ENABLE_POSTFIX}" == "true" ]] || [[ "${ENABLE_POSTFIX}" == "1" ]]; then
