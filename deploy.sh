@@ -1642,6 +1642,7 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
 	-e "s|{{POSTGRES_SHM_SIZE}}|${POSTGRES_SHM_SIZE:?}|g" \
+	-e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	${COMPOSE_TEMPLATE:?} >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml
