@@ -1549,43 +1549,30 @@ echo
 
 # Determine the images to use
 # Try to use my images first, then the official ones
-LEMMY_IMAGE_TAG="ghcr.io/ubergeek77/lemmy:${LATEST_BACKEND:?}"
-if [[ -z "${COMPOSE_LEMMY_IMAGE}" ]]; then
-	echo "Finding the best available Backend image, please wait..."
-	if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
-		echo "! ${LEMMY_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
-		LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
-		echo "! Checking backup image at ${LEMMY_IMAGE_TAG}..."
-		if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
-			echo >&2 "ERROR: A Lemmy Backend image for your architecture is not available (${DOCKER_ARCH})"
-			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
-			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
-			exit 1
-		fi
-	fi
-	echo "--> Using Backend Image: ${LEMMY_IMAGE_TAG}"
-	COMPOSE_LEMMY_IMAGE="image: ${LEMMY_IMAGE_TAG}"
-	echo
+LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
+echo "Finding the Backend image for your architecture, please wait..."
+if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
+	echo >&2 "ERROR: A Lemmy Backend image for your architecture is not available (${DOCKER_ARCH})"
+	echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+	echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
+	exit 1
+fi
+echo "--> Using Backend Image: ${LEMMY_IMAGE_TAG}"
+COMPOSE_LEMMY_IMAGE="image: ${LEMMY_IMAGE_TAG}"
+echo
+
+LEMMY_UI_IMAGE_TAG="dessalines/lemmy-ui:${LATEST_FRONTEND:?}"
+echo "Finding the Frontend image for your architecture, please wait..."
+if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
+	echo >&2 "ERROR: A Lemmy Frontend image for your architecture is not available (${DOCKER_ARCH})"
+	echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+	echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
+	exit 1
 fi
 
-LEMMY_UI_IMAGE_TAG="ghcr.io/ubergeek77/lemmy-ui:${LATEST_FRONTEND:?}"
-if [[ -z "${COMPOSE_LEMMY_UI_IMAGE}" ]]; then
-	echo "Finding the best available Frontend image, please wait..."
-	if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
-		echo "! ${LEMMY_UI_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
-		LEMMY_UI_IMAGE_TAG="dessalines/lemmy-ui:${LATEST_FRONTEND:?}"
-		echo "! Checking backup image at ${LEMMY_UI_IMAGE_TAG}..."
-		if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
-			echo >&2 "ERROR: A Lemmy Frontend image for your architecture is not available (${DOCKER_ARCH})"
-			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
-			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
-			exit 1
-		fi
-	fi
-	echo "--> Using Frontend Image: ${LEMMY_UI_IMAGE_TAG}"
-	COMPOSE_LEMMY_UI_IMAGE="image: ${LEMMY_UI_IMAGE_TAG}"
-	echo
-fi
+echo "--> Using Frontend Image: ${LEMMY_UI_IMAGE_TAG}"
+COMPOSE_LEMMY_UI_IMAGE="image: ${LEMMY_UI_IMAGE_TAG}"
+echo
 
 # Caddy is reliable, I don't need to check it
 COMPOSE_CADDY_IMAGE="image: caddy:latest"
