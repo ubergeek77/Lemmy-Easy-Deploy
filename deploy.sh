@@ -1331,40 +1331,42 @@ if [[ -f ./custom/docker-compose.yml.template ]]; then
 fi
 
 # Warn the user about the postgres 15 -> 16 migration
-postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
-if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
-		echo "--------------------------------------------------------------------|"
-		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-		echo "|                                                                   |"
-		echo "|      It looks like you are using Postgres version 15 or lower.    |"
-		echo "|                                                                   |"
-		echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
-		echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
-		echo "|         will handle this migration for you automatically,         |"
-		echo "|             thanks to the 'pgautoupgrade' project.                |"
-		echo "|                                                                   |"
-		echo "|    This migration will require no action from you, and should     |"
-		echo "|      take under 1 minute for even large Postgres databases.       |"
-		echo "|                                                                   |"
-		echo "|    However, since the migration is done in-place, with no way     |"
-		echo "|    to roll back, you are highly encouraged to create a backup     |"
-		echo "|     of your Postgres volume before proceeding, just in case.      |"
-		echo "|                                                                   |"
-		echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
-		echo "|                                                                   |"
-		echo "| Please consult the Docker docs for commands on making a backup:   |"
-		echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
-		echo "|                                                                   |"
-		echo "| Your Postgres data is stored in the following Volume:             |"
-		echo "|       lemmy-easy-deploy_postgres_data                             |"
-		echo "|                                                                   |"
-		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-		echo "|-------------------------------------------------------------------|"
-		echo
-		if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
-			exit 0
-		fi
-		echo
+if [ -f "${SCRIPT_DIR:?}/live/docker-compose.yml" ]; then
+	postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
+	if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
+			echo "--------------------------------------------------------------------|"
+			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+			echo "|                                                                   |"
+			echo "|      It looks like you are using Postgres version 15 or lower.    |"
+			echo "|                                                                   |"
+			echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
+			echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
+			echo "|         will handle this migration for you automatically,         |"
+			echo "|             thanks to the 'pgautoupgrade' project.                |"
+			echo "|                                                                   |"
+			echo "|    This migration will require no action from you, and should     |"
+			echo "|      take under 1 minute for even large Postgres databases.       |"
+			echo "|                                                                   |"
+			echo "|    However, since the migration is done in-place, with no way     |"
+			echo "|    to roll back, you are highly encouraged to create a backup     |"
+			echo "|     of your Postgres volume before proceeding, just in case.      |"
+			echo "|                                                                   |"
+			echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
+			echo "|                                                                   |"
+			echo "| Please consult the Docker docs for commands on making a backup:   |"
+			echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
+			echo "|                                                                   |"
+			echo "| Your Postgres data is stored in the following Volume:             |"
+			echo "|       lemmy-easy-deploy_postgres_data                             |"
+			echo "|                                                                   |"
+			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+			echo "|-------------------------------------------------------------------|"
+			echo
+			if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
+				exit 0
+			fi
+			echo
+	fi
 fi
 
 # Ask the user if they want to update
