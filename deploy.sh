@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.4.3"
+LED_CURRENT_VERSION="1.4.4"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -1331,40 +1331,42 @@ if [[ -f ./custom/docker-compose.yml.template ]]; then
 fi
 
 # Warn the user about the postgres 15 -> 16 migration
-postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
-if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
-		echo "--------------------------------------------------------------------|"
-		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-		echo "|                                                                   |"
-		echo "|      It looks like you are using Postgres version 15 or lower.    |"
-		echo "|                                                                   |"
-		echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
-		echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
-		echo "|         will handle this migration for you automatically,         |"
-		echo "|             thanks to the 'pgautoupgrade' project.                |"
-		echo "|                                                                   |"
-		echo "|    This migration will require no action from you, and should     |"
-		echo "|      take under 1 minute for even large Postgres databases.       |"
-		echo "|                                                                   |"
-		echo "|    However, since the migration is done in-place, with no way     |"
-		echo "|    to roll back, you are highly encouraged to create a backup     |"
-		echo "|     of your Postgres volume before proceeding, just in case.      |"
-		echo "|                                                                   |"
-		echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
-		echo "|                                                                   |"
-		echo "| Please consult the Docker docs for commands on making a backup:   |"
-		echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
-		echo "|                                                                   |"
-		echo "| Your Postgres data is stored in the following Volume:             |"
-		echo "|       lemmy-easy-deploy_postgres_data                             |"
-		echo "|                                                                   |"
-		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-		echo "|-------------------------------------------------------------------|"
-		echo
-		if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
-			exit 0
-		fi
-		echo
+if [ -f "${SCRIPT_DIR:?}/live/docker-compose.yml" ]; then
+	postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
+	if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
+			echo "--------------------------------------------------------------------|"
+			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+			echo "|                                                                   |"
+			echo "|      It looks like you are using Postgres version 15 or lower.    |"
+			echo "|                                                                   |"
+			echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
+			echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
+			echo "|         will handle this migration for you automatically,         |"
+			echo "|             thanks to the 'pgautoupgrade' project.                |"
+			echo "|                                                                   |"
+			echo "|    This migration will require no action from you, and should     |"
+			echo "|      take under 1 minute for even large Postgres databases.       |"
+			echo "|                                                                   |"
+			echo "|    However, since the migration is done in-place, with no way     |"
+			echo "|    to roll back, you are highly encouraged to create a backup     |"
+			echo "|     of your Postgres volume before proceeding, just in case.      |"
+			echo "|                                                                   |"
+			echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
+			echo "|                                                                   |"
+			echo "| Please consult the Docker docs for commands on making a backup:   |"
+			echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
+			echo "|                                                                   |"
+			echo "| Your Postgres data is stored in the following Volume:             |"
+			echo "|       lemmy-easy-deploy_postgres_data                             |"
+			echo "|                                                                   |"
+			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+			echo "|-------------------------------------------------------------------|"
+			echo
+			if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
+				exit 0
+			fi
+			echo
+	fi
 fi
 
 # Ask the user if they want to update
@@ -1547,45 +1549,31 @@ fi
 
 echo
 
-# Determine the images to use
-# Try to use my images first, then the official ones
-LEMMY_IMAGE_TAG="ghcr.io/ubergeek77/lemmy:${LATEST_BACKEND:?}"
-if [[ -z "${COMPOSE_LEMMY_IMAGE}" ]]; then
-	echo "Finding the best available Backend image, please wait..."
-	if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
-		echo "! ${LEMMY_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
-		LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
-		echo "! Checking backup image at ${LEMMY_IMAGE_TAG}..."
-		if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
-			echo >&2 "ERROR: A Lemmy Backend image for your architecture is not available (${DOCKER_ARCH})"
-			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
-			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
-			exit 1
-		fi
-	fi
-	echo "--> Using Backend Image: ${LEMMY_IMAGE_TAG}"
-	COMPOSE_LEMMY_IMAGE="image: ${LEMMY_IMAGE_TAG}"
-	echo
+# Ensure the images are available before proceeding
+LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
+echo "Finding the Backend image for your architecture, please wait..."
+if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
+	echo >&2 "ERROR: A Lemmy Backend image for your architecture is not available (${DOCKER_ARCH})"
+	echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+	echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
+	exit 1
+fi
+echo "--> Using Backend Image: ${LEMMY_IMAGE_TAG}"
+COMPOSE_LEMMY_IMAGE="image: ${LEMMY_IMAGE_TAG}"
+echo
+
+LEMMY_UI_IMAGE_TAG="dessalines/lemmy-ui:${LATEST_FRONTEND:?}"
+echo "Finding the Frontend image for your architecture, please wait..."
+if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
+	echo >&2 "ERROR: A Lemmy Frontend image for your architecture is not available (${DOCKER_ARCH})"
+	echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
+	echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
+	exit 1
 fi
 
-LEMMY_UI_IMAGE_TAG="ghcr.io/ubergeek77/lemmy-ui:${LATEST_FRONTEND:?}"
-if [[ -z "${COMPOSE_LEMMY_UI_IMAGE}" ]]; then
-	echo "Finding the best available Frontend image, please wait..."
-	if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
-		echo "! ${LEMMY_UI_IMAGE_TAG} is not available for ${DOCKER_ARCH}"
-		LEMMY_UI_IMAGE_TAG="dessalines/lemmy-ui:${LATEST_FRONTEND:?}"
-		echo "! Checking backup image at ${LEMMY_UI_IMAGE_TAG}..."
-		if ! check_image_arch ${LEMMY_UI_IMAGE_TAG:?}; then
-			echo >&2 "ERROR: A Lemmy Frontend image for your architecture is not available (${DOCKER_ARCH})"
-			echo >&2 "If you are confident that this image exists for '${DOCKER_ARCH}', please report this as an issue: "
-			echo >&2 "    https://github.com/ubergeek77/Lemmy-Easy-Deploy/issue"
-			exit 1
-		fi
-	fi
-	echo "--> Using Frontend Image: ${LEMMY_UI_IMAGE_TAG}"
-	COMPOSE_LEMMY_UI_IMAGE="image: ${LEMMY_UI_IMAGE_TAG}"
-	echo
-fi
+echo "--> Using Frontend Image: ${LEMMY_UI_IMAGE_TAG}"
+COMPOSE_LEMMY_UI_IMAGE="image: ${LEMMY_UI_IMAGE_TAG}"
+echo
 
 # Caddy is reliable, I don't need to check it
 COMPOSE_CADDY_IMAGE="image: caddy:latest"
@@ -1642,6 +1630,7 @@ sed -e "s|{{COMPOSE_CADDY_IMAGE}}|${COMPOSE_CADDY_IMAGE:?}|g" \
 	-e "s|{{CADDY_HTTP_PORT}}|${CADDY_HTTP_PORT:?}|g" \
 	-e "s|{{CADDY_HTTPS_PORT}}|${CADDY_HTTPS_PORT:?}|g" \
 	-e "s|{{POSTGRES_SHM_SIZE}}|${POSTGRES_SHM_SIZE:?}|g" \
+	-e "s|{{LEMMY_HOSTNAME}}|${LEMMY_HOSTNAME:?}|g" \
 	${COMPOSE_TEMPLATE:?} >./live/docker-compose.yml
 
 # If ENABLE_POSTFIX is enabled, add the postfix services to docker-compose.yml

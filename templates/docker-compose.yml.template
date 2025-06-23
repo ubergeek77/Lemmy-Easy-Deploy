@@ -40,7 +40,7 @@ services:
     env_file: {{ LEMMY_UI_EXTRA_ENV }}
     environment:
       - LEMMY_UI_LEMMY_INTERNAL_HOST=lemmy:8536
-      - LEMMY_UI_LEMMY_EXTERNAL_HOST=localhost:1236
+      - LEMMY_UI_LEMMY_EXTERNAL_HOST={{LEMMY_HOSTNAME}}
     volumes:
       - ./lemmy-ui-themes:/app/extra_themes
     depends_on:
