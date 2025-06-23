@@ -1547,8 +1547,7 @@ fi
 
 echo
 
-# Determine the images to use
-# Try to use my images first, then the official ones
+# Ensure the images are available before proceeding
 LEMMY_IMAGE_TAG="dessalines/lemmy:${LATEST_BACKEND:?}"
 echo "Finding the Backend image for your architecture, please wait..."
 if ! check_image_arch ${LEMMY_IMAGE_TAG:?}; then
