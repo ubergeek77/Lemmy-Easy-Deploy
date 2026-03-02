@@ -1333,39 +1333,39 @@ fi
 # Warn the user about the postgres 15 -> 16 migration
 if [ -f "${SCRIPT_DIR:?}/live/docker-compose.yml" ]; then
 	postgres_version=$(sed -n '/postgres:/,$p' "${SCRIPT_DIR:?}/live/docker-compose.yml" | grep -m1 'image:' | tr -cd '0-9')
-	if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] &&[ "$postgres_version" -lt 16 ]; then
-			echo "--------------------------------------------------------------------|"
-			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-			echo "|                                                                   |"
-			echo "|      It looks like you are using Postgres version 15 or lower.    |"
-			echo "|                                                                   |"
-			echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
-			echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
-			echo "|         will handle this migration for you automatically,         |"
-			echo "|             thanks to the 'pgautoupgrade' project.                |"
-			echo "|                                                                   |"
-			echo "|    This migration will require no action from you, and should     |"
-			echo "|      take under 1 minute for even large Postgres databases.       |"
-			echo "|                                                                   |"
-			echo "|    However, since the migration is done in-place, with no way     |"
-			echo "|    to roll back, you are highly encouraged to create a backup     |"
-			echo "|     of your Postgres volume before proceeding, just in case.      |"
-			echo "|                                                                   |"
-			echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
-			echo "|                                                                   |"
-			echo "| Please consult the Docker docs for commands on making a backup:   |"
-			echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
-			echo "|                                                                   |"
-			echo "| Your Postgres data is stored in the following Volume:             |"
-			echo "|       lemmy-easy-deploy_postgres_data                             |"
-			echo "|                                                                   |"
-			echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
-			echo "|-------------------------------------------------------------------|"
-			echo
-			if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
-				exit 0
-			fi
-			echo
+	if [[ -n "$postgres_version" ]] && [[ "$postgres_version" =~ ^[0-9]+$ ]] && [ "$postgres_version" -lt 16 ]; then
+		echo "--------------------------------------------------------------------|"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|                                                                   |"
+		echo "|      It looks like you are using Postgres version 15 or lower.    |"
+		echo "|                                                                   |"
+		echo "|  Starting in Lemmy v0.19.4, Lemmy requires Postgres version 16.   |"
+		echo "|    This requires a database migration, but Lemmy-Easy-Deploy      |"
+		echo "|         will handle this migration for you automatically,         |"
+		echo "|             thanks to the 'pgautoupgrade' project.                |"
+		echo "|                                                                   |"
+		echo "|    This migration will require no action from you, and should     |"
+		echo "|      take under 1 minute for even large Postgres databases.       |"
+		echo "|                                                                   |"
+		echo "|    However, since the migration is done in-place, with no way     |"
+		echo "|    to roll back, you are highly encouraged to create a backup     |"
+		echo "|     of your Postgres volume before proceeding, just in case.      |"
+		echo "|                                                                   |"
+		echo "| This data is stored in a Docker Volume, **NOT** the ./live folder |"
+		echo "|                                                                   |"
+		echo "| Please consult the Docker docs for commands on making a backup:   |"
+		echo "|    https://docs.docker.com/storage/volumes/#back-up-a-volume      |"
+		echo "|                                                                   |"
+		echo "| Your Postgres data is stored in the following Volume:             |"
+		echo "|       lemmy-easy-deploy_postgres_data                             |"
+		echo "|                                                                   |"
+		echo "|  !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!!  |"
+		echo "|-------------------------------------------------------------------|"
+		echo
+		if ! ask_user "Would you like to proceed with this automated Postgres migration?"; then
+			exit 0
+		fi
+		echo
 	fi
 fi
 
@@ -1750,53 +1750,53 @@ fi
 		while :; do
 			# Define individual ready criteria for each service
 			case "${service}" in
-				"postgres")
-					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready 2>&1 >/dev/null; then
-						service_ready=1
-					fi
-					;;
-				"pictrs")
-					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec pictrs /bin/sh -c "wget -S 127.0.0.1:8080/healthz -O /dev/null 2>&1 | grep -i "HTTP/" | awk '{print \$2}'")" == "200" ]]; then
-						service_ready=1
-					fi
-					;;
-				"lemmy")
-					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:8536/api/v3/site")" == "200" ]]; then
-						service_ready=1
-					fi
-					;;
-				"lemmy-ui")
-					if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy-ui /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:1234")" == "200" ]]; then
-						service_ready=1
-					fi
-					;;
-				"postfix")
-					if $COMPOSE_CMD -p "lemmy-easy-deploy" exec postfix postfix status 2>&1 >/dev/null; then
-						service_ready=1
-					fi
-					;;
-				*)
-					if [[ "$(get_service_status $service)" == "running" ]]; then
-						service_ready=1
-					fi
-					;;
+			"postgres")
+				if $COMPOSE_CMD -p "lemmy-easy-deploy" exec "${service}" pg_isready 2>&1 >/dev/null; then
+					service_ready=1
+				fi
+				;;
+			"pictrs")
+				if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec pictrs /bin/sh -c "wget -S 127.0.0.1:8080/healthz -O /dev/null 2>&1 | grep -i "HTTP/" | awk '{print \$2}'")" == "200" ]]; then
+					service_ready=1
+				fi
+				;;
+			"lemmy")
+				if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:8536/api/v3/site")" == "200" ]]; then
+					service_ready=1
+				fi
+				;;
+			"lemmy-ui")
+				if [[ "$($COMPOSE_CMD -p "lemmy-easy-deploy" exec lemmy-ui /bin/sh -c "curl -s -o /dev/null -w \"%{http_code}\" 127.0.0.1:1234")" == "200" ]]; then
+					service_ready=1
+				fi
+				;;
+			"postfix")
+				if $COMPOSE_CMD -p "lemmy-easy-deploy" exec postfix postfix status 2>&1 >/dev/null; then
+					service_ready=1
+				fi
+				;;
+			*)
+				if [[ "$(get_service_status $service)" == "running" ]]; then
+					service_ready=1
+				fi
+				;;
 			esac
 
 			if [[ "${service_ready}" != "1" ]]; then
-					echo "----> '${service}' is still starting up. Log excerpt:"
-					echo
-					$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
-					echo
-					echo "----> Waiting for '${service}'"
-					echo "----> Checking again in 15 seconds."
-					echo "------> To abort, press CTRL+C, which will keep services running and allow for manual diagnostics."
-					echo "------> Please DO NOT press CTRL+C unless you see a fatal error above, or if this is taking way too long."
-					echo "------> Interrupting an ongoing database migration is NOT recommended!"
-					sleep 15
-				else
-					echo "----> ${service} is ready!"
-					break;
-				fi
+				echo "----> '${service}' is still starting up. Log excerpt:"
+				echo
+				$COMPOSE_CMD -p "lemmy-easy-deploy" logs ${service} -n 10
+				echo
+				echo "----> Waiting for '${service}'"
+				echo "----> Checking again in 15 seconds."
+				echo "------> To abort, press CTRL+C, which will keep services running and allow for manual diagnostics."
+				echo "------> Please DO NOT press CTRL+C unless you see a fatal error above, or if this is taking way too long."
+				echo "------> Interrupting an ongoing database migration is NOT recommended!"
+				sleep 15
+			else
+				echo "----> ${service} is ready!"
+				break
+			fi
 		done
 	done
 
