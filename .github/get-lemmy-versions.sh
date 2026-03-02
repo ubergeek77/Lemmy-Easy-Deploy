@@ -32,5 +32,9 @@ get_latest_tag() {
 LATEST_BACKEND=$(get_latest_tag "https://github.com/LemmyNet/lemmy")
 LATEST_FRONTEND=$(get_latest_tag "https://github.com/LemmyNet/lemmy-ui")
 
+echo "Detected versions:"
+echo "   LATEST_BACKEND=${LATEST_BACKEND}"
+echo "   LATEST_FRONTEND=${LATEST_FRONTEND}"
+
 echo "LATEST_BACKEND=${LATEST_BACKEND}" >.backend_version
 echo "LATEST_FRONTEND=${LATEST_FRONTEND}" >.frontend_version
