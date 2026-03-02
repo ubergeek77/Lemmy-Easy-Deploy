@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-LED_CURRENT_VERSION="1.4.4"
+LED_CURRENT_VERSION="1.4.5"
+
+BE_VERSION_FILE="https://raw.githubusercontent.com/ubergeek77/Lemmy-Easy-Deploy/refs/heads/main/.github/.backend_version"
+FE_VERSION_FILE="https://raw.githubusercontent.com/ubergeek77/Lemmy-Easy-Deploy/refs/heads/main/.github/.frontend_version"
 
 # cd to the directory the script is in
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -1193,7 +1196,16 @@ echo
 
 LATEST_BACKEND="${BACKEND_TAG_OVERRIDE}"
 if [[ -z "${LATEST_BACKEND}" ]]; then
-	LATEST_BACKEND="$(latest_github_tag LemmyNet/lemmy)"
+	# We have to do this in an awkward way because Lemmy published 6+ year old tags and broke the ordering
+	# First, see if my repo has it
+	# Otherwise, get the version from .github
+	if BE_CURL_CONTENT="$(curl -fsSL "${BE_VERSION_FILE}" 2>/dev/null)"; then
+		source <(echo "$BE_CURL_CONTENT")
+		VERSION_SOURCE=" (from GitHub)"
+	else
+		source .github/.backend_version
+		VERSION_SOURCE=""
+	fi
 fi
 
 if [[ "${CURRENT_BACKEND}" != "0.0.0" ]]; then
@@ -1207,7 +1219,7 @@ elif [[ -n "${BACKEND_TAG_OVERRIDE}" ]]; then
 elif [[ "${BUILD_BACKEND}" == "1" ]]; then
 	echo "  Target Backend Version: (git:${LATEST_BACKEND})"
 else
-	echo "  Latest Backend Version: ${LATEST_BACKEND}"
+	echo "  Latest Backend Version: ${LATEST_BACKEND}${VERSION_SOURCE}"
 fi
 echo
 
@@ -1245,7 +1257,16 @@ fi
 # Allow the user to override the version to update to
 LATEST_FRONTEND="${FRONTEND_TAG_OVERRIDE}"
 if [[ "${LATEST_FRONTEND}" == "" ]]; then
-	LATEST_FRONTEND="$(latest_github_tag LemmyNet/lemmy-ui)"
+	# We have to do this in an awkward way because Lemmy published 6+ year old tags and broke the ordering
+	# First, see if my repo has it
+	# Otherwise, get the version from .github
+	if FE_CURL_CONTENT="$(curl -fsSL "${FE_VERSION_FILE}" 2>/dev/null)"; then
+		source <(echo "$FE_CURL_CONTENT")
+		VERSION_SOURCE=" (from GitHub)"
+	else
+		source .github/.frontend_version
+		VERSION_SOURCE=""
+	fi
 fi
 
 if [[ "${CURRENT_FRONTEND}" != "0.0.0" ]]; then
@@ -1259,7 +1280,7 @@ elif [[ -n "${FRONTEND_TAG_OVERRIDE}" ]]; then
 elif [[ "${BUILD_BACKEND}" == "1" ]]; then
 	echo "  Target Frontend Version: (git:${LATEST_FRONTEND})"
 else
-	echo "  Latest Frontend Version: ${LATEST_FRONTEND}"
+	echo "  Latest Frontend Version: ${LATEST_FRONTEND}${VERSION_SOURCE}"
 fi
 echo
 
