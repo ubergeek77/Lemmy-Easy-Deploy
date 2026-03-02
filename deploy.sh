@@ -176,7 +176,7 @@ diag_info() {
 	echo "==== Lemmy-Easy-Deploy Information ===="
 	echo "Version: $LED_CURRENT_VERSION"
 	echo ""
-	docker ps --filter "name=lemmy-easy-deploy" --format "table {{.Image}}\t{{.RunningFor}}\t{{.Status}}"
+	${RUNTIME_CMD:?} ps --filter "name=lemmy-easy-deploy" --format "table {{.Image}}\t{{.RunningFor}}\t{{.Status}}"
 	echo ""
 	echo "Integrity:"
 	if ! command -v sha256sum &>/dev/null; then
@@ -250,7 +250,7 @@ get_service_status() {
 				sleep 5
 				continue
 			fi
-			SVC_STATUS="$(echo $CONTAINER_ID | xargs docker inspect --format='{{ .State.Status }}')"
+			SVC_STATUS="$(echo $CONTAINER_ID | xargs ${RUNTIME_CMD:?} inspect --format='{{ .State.Status }}')"
 			if [ $? -ne 0 ]; then
 				sleep 5
 				continue
@@ -276,13 +276,10 @@ random_string() {
 }
 
 detect_runtime() {
-	# Check for docker or podman
-	for cmd in "podman" "docker"; do
-		if $cmd >/dev/null 2>&1; then
-			RUNTIME_CMD=$cmd
-			break
-		fi
-	done
+	# Check for docker
+	if docker -v >/dev/null 2>&1; then
+		RUNTIME_CMD=docker
+	fi
 
 	if [[ -z "${RUNTIME_CMD}" ]]; then
 		echo >&2 "ERROR: Could not find a container runtime. Did you install Docker?"
@@ -291,25 +288,14 @@ detect_runtime() {
 		exit 1
 	fi
 
-	# Check for docker compose or podman compose
-	if [[ "${RUNTIME_CMD}" == "podman" ]]; then
-		echo "WARNING: podman will probably work, but I haven't tested it much. It's up to you to make sure all the permissions for podman are correct!"
-		COMPOSE_CMD="podman-compose"
+	# Check for docker compose
+	for cmd in "${RUNTIME_CMD:?} compose" "${RUNTIME_CMD:?}-compose"; do
+		COMPOSE_CMD="${cmd}"
 		if $COMPOSE_CMD >/dev/null 2>&1; then
 			COMPOSE_FOUND="true"
-		else
-			echo >&2 "ERROR: podman detected, but podman-compose is not installed. Please install podman-compose!"
-			exit 1
+			break
 		fi
-	else
-		for cmd in "docker compose" "docker-compose"; do
-			COMPOSE_CMD="${cmd}"
-			if $COMPOSE_CMD >/dev/null 2>&1; then
-				COMPOSE_FOUND="true"
-				break
-			fi
-		done
-	fi
+	done
 
 	if [[ "${COMPOSE_FOUND}" != "true" ]]; then
 		echo >&2 "ERROR: Could not find Docker Compose. Is Docker Compose installed?"
@@ -328,7 +314,7 @@ detect_runtime() {
 	echo "Detected compose: $COMPOSE_CMD (${COMPOSE_VERSION})"
 
 	RUNTIME_STATE="ERROR"
-	if docker run --rm -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
+	if ${RUNTIME_CMD:?} run --rm -v "$(pwd):/host:ro" hello-world >/dev/null 2>&1; then
 		RUNTIME_STATE="OK"
 	fi
 	echo "   Runtime state: $RUNTIME_STATE"
@@ -567,7 +553,7 @@ check_image_arch() {
 	# Docker versions <24 do not support checking images that have attestation tags
 	if ((DOCKER_MAJOR < 24)); then
 		echo "WARNING: Unsupported Docker version; pulling full image first"
-		if docker pull "$1" >/dev/null 2>&1; then
+		if ${RUNTIME_CMD:?} pull "$1" >/dev/null 2>&1; then
 			return 0
 		else
 			return 1
@@ -576,13 +562,13 @@ check_image_arch() {
 
 	# Detect the current docker architecture
 	if [[ -z "${DOCKER_ARCH}" ]]; then
-		export DOCKER_ARCH="$(docker version --format '{{.Server.Arch}}')"
+		export DOCKER_ARCH="$(${RUNTIME_CMD:?} version --format '{{.Server.Arch}}')"
 		export SEARCH_ARCH="${DOCKER_ARCH}"
 	fi
 
 	# Determine if imagetools is available
 	if [[ -z "${IMAGETOOLS_AVAILABLE}" ]]; then
-		if docker buildx imagetools >/dev/null 2>&1; then
+		if ${RUNTIME_CMD:?} buildx imagetools >/dev/null 2>&1; then
 			export IMAGETOOLS_AVAILABLE=1
 		else
 			export IMAGETOOLS_AVAILABLE=0
@@ -595,10 +581,10 @@ check_image_arch() {
 		if [[ "${DOCKER_ARCH}" == "arm" ]]; then
 			SEARCH_ARCH="arm/v7"
 		fi
-		INSPECT_CMD="docker buildx imagetools"
+		INSPECT_CMD="${RUNTIME_CMD:?} buildx imagetools"
 		INSPECT_MATCH="Platform:    linux/${SEARCH_ARCH}$"
 	else
-		INSPECT_CMD="docker manifest"
+		INSPECT_CMD="${RUNTIME_CMD:?} manifest"
 		INSPECT_MATCH="\"architecture\": \"${DOCKER_ARCH}\",$"
 	fi
 
@@ -1063,7 +1049,7 @@ fi
 
 # If this system has any of the volume names with the live prefix, they probably started the deployment manually
 VOLUME_CHECK=("live_caddy_config" "live_caddy_data" "live_pictrs_data" "live_postgres_data")
-VOLUME_LIST="$(docker volume ls | tr '\n' ' ')"
+VOLUME_LIST="$(${RUNTIME_CMD:?} volume ls | tr '\n' ' ')"
 DETECTED_VOLUMES=()
 
 for v in "${VOLUME_CHECK[@]}"; do
@@ -1124,7 +1110,7 @@ else
 fi
 
 # Detect if the user has an existing postgres volume
-if docker volume ls | grep -q lemmy-easy-deploy_postgres_data 2>&1 >/dev/null; then
+if ${RUNTIME_CMD:?} volume ls | grep -q lemmy-easy-deploy_postgres_data 2>&1 >/dev/null; then
 	HAS_VOLUME=1
 else
 	HAS_VOLUME=0
