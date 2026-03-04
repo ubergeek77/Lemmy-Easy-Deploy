@@ -1,6 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Make sure the upstream deployment hasn't changed
+EXPECTED_COMMIT="721f7df"
+echo "Checking for changes in lemmy-ansible templates/docker-compose.yml..."
+LATEST_COMPOSE_COMMIT=$(
+	curl -sf "https://api.github.com/repos/LemmyNet/lemmy-ansible/commits?path=templates/docker-compose.yml&per_page=1" |
+		grep -m1 '"sha"' |
+		sed 's/.*"sha": "\([^"]*\)".*/\1/'
+)
+
+if [[ -z "$LATEST_COMPOSE_COMMIT" ]]; then
+	echo "ERROR: Could not fetch latest commit for lemmy-ansible templates/docker-compose.yml" >&2
+	exit 1
+fi
+
+if [[ "$LATEST_COMPOSE_COMMIT" != "${EXPECTED_COMMIT}"* ]]; then
+	echo "ERROR: lemmy-ansible templates/docker-compose.yml has changes after ${EXPECTED_COMMIT}." >&2
+	echo "  Latest commit: ${LATEST_COMPOSE_COMMIT}" >&2
+	echo "  Expected:      ${EXPECTED_COMMIT}" >&2
+	exit 1
+fi
+
+echo "No upstream deployment changes."
+
 get_latest_tag() {
 	(
 		WORKDIR=$(mktemp -d)
@@ -39,5 +62,5 @@ echo "   LATEST_FRONTEND=${LATEST_FRONTEND}"
 echo "LATEST_BACKEND=${LATEST_BACKEND}" >.backend_version
 echo "LATEST_FRONTEND=${LATEST_FRONTEND}" >.frontend_version
 
-echo "LATEST_BACKEND=${LATEST_BACKEND}" >> "$GITHUB_OUTPUT"
-echo "LATEST_FRONTEND=${LATEST_FRONTEND}" >> "$GITHUB_OUTPUT"
+echo "LATEST_BACKEND=${LATEST_BACKEND}" >>"$GITHUB_OUTPUT"
+echo "LATEST_FRONTEND=${LATEST_FRONTEND}" >>"$GITHUB_OUTPUT"
