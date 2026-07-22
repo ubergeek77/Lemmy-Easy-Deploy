@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Make sure the upstream deployment hasn't changed
-EXPECTED_COMMIT="721f7df"
+EXPECTED_COMMIT="0fe20d1"
 echo "Checking for changes in lemmy-ansible templates/docker-compose.yml..."
 LATEST_COMPOSE_COMMIT=$(
 	curl -sf "https://api.github.com/repos/LemmyNet/lemmy-ansible/commits?path=templates/docker-compose.yml&per_page=1" |
